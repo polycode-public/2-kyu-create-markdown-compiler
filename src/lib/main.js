@@ -59,19 +59,23 @@ export function tokenize(markdown) {
     if (headingMatch) {
       const level = headingMatch[1].length;
       const content = headingMatch[2];
+      const inlineTokens = parseInline(content);
       tokens.push({
         type: "heading",
         level,
         content,
+        inline: inlineTokens,
       });
       i++;
       continue;
     }
 
     // Paragraph (default for any other line)
+    const inlineTokens = parseInline(trimmed);
     tokens.push({
       type: "paragraph",
       content: trimmed,
+      inline: inlineTokens,
     });
     i++;
   }
@@ -85,6 +89,36 @@ function parseInline(text) {
   let i = 0;
 
   while (i < text.length) {
+    // Image ![alt](src)
+    if (text[i] === "!" && text[i + 1] === "[") {
+      const closeIdx = text.indexOf("]", i + 2);
+      if (closeIdx !== -1 && text[closeIdx + 1] === "(") {
+        const parenClose = text.indexOf(")", closeIdx + 2);
+        if (parenClose !== -1) {
+          const alt = text.slice(i + 2, closeIdx);
+          const src = text.slice(closeIdx + 2, parenClose);
+          tokens.push({ type: "image", alt, src });
+          i = parenClose + 1;
+          continue;
+        }
+      }
+    }
+
+    // Link [text](url)
+    if (text[i] === "[") {
+      const closeIdx = text.indexOf("]", i + 1);
+      if (closeIdx !== -1 && text[closeIdx + 1] === "(") {
+        const parenClose = text.indexOf(")", closeIdx + 2);
+        if (parenClose !== -1) {
+          const linkText = text.slice(i + 1, closeIdx);
+          const url = text.slice(closeIdx + 2, parenClose);
+          tokens.push({ type: "link", content: linkText, url });
+          i = parenClose + 1;
+          continue;
+        }
+      }
+    }
+
     // Bold **text**
     if (text[i] === "*" && text[i + 1] === "*") {
       const closeIdx = text.indexOf("**", i + 2);
@@ -133,7 +167,7 @@ function parseInline(text) {
     let end = i + 1;
     while (end < text.length) {
       const char = text[end];
-      if (char === "*" || char === "`" || char === "~") break;
+      if (char === "*" || char === "`" || char === "~" || char === "[" || (char === "!" && text[end + 1] === "[")) break;
       end++;
     }
 
@@ -165,6 +199,10 @@ function renderInline(text) {
       html += "<code>" + escapeHtml(token.content) + "</code>";
     } else if (token.type === "strikethrough") {
       html += "<del>" + renderInline(token.content) + "</del>";
+    } else if (token.type === "link") {
+      html += "<a href=\"" + escapeHtml(token.url) + "\">" + renderInline(token.content) + "</a>";
+    } else if (token.type === "image") {
+      html += "<img src=\"" + escapeHtml(token.src) + "\" alt=\"" + escapeHtml(token.alt) + "\"/>";
     }
   }
 
