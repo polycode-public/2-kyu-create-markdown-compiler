@@ -54,6 +54,22 @@ export function tokenize(markdown) {
       continue;
     }
 
+    // Fenced code block
+    if (trimmed.startsWith("```")) {
+      const codeToken = parseCodeBlock(lines, i);
+      tokens.push(codeToken);
+      i = codeToken._endIndex;
+      continue;
+    }
+
+    // Blockquote
+    if (trimmed.startsWith(">")) {
+      const blockquoteToken = parseBlockquote(lines, i);
+      tokens.push(blockquoteToken);
+      i = blockquoteToken._endIndex;
+      continue;
+    }
+
     // Heading
     const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
     if (headingMatch) {
@@ -90,6 +106,81 @@ export function tokenize(markdown) {
   }
 
   return tokens;
+}
+
+// Parse a fenced code block
+function parseCodeBlock(lines, startIdx) {
+  const firstLine = lines[startIdx].trim();
+  const langMatch = firstLine.match(/^```(.*)$/);
+  const language = langMatch ? langMatch[1].trim() : "";
+
+  let i = startIdx + 1;
+  const codeLines = [];
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.trim().startsWith("```")) {
+      return {
+        type: "code-block",
+        language,
+        content: codeLines.join("\n"),
+        _endIndex: i + 1
+      };
+    }
+    codeLines.push(line);
+    i++;
+  }
+
+  // No closing fence found, treat as code block to end of file
+  return {
+    type: "code-block",
+    language,
+    content: codeLines.join("\n"),
+    _endIndex: i
+  };
+}
+
+// Parse a blockquote (including nested blockquotes)
+function parseBlockquote(lines, startIdx) {
+  const blockquoteLines = [];
+  let i = startIdx;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      // Empty line might be part of blockquote or end it
+      i++;
+      // Check if next line continues blockquote
+      if (i < lines.length && lines[i].trim().startsWith(">")) {
+        blockquoteLines.push("");
+        continue;
+      } else {
+        break;
+      }
+    }
+
+    if (trimmed.startsWith(">")) {
+      // Remove the > and optional space
+      const contentAfterMarker = trimmed.replace(/^>\s?/, "");
+      blockquoteLines.push(contentAfterMarker);
+      i++;
+    } else {
+      break;
+    }
+  }
+
+  // Parse blockquote content recursively
+  const blockquoteContent = blockquoteLines.join("\n");
+  const nestedTokens = tokenize(blockquoteContent);
+
+  return {
+    type: "blockquote",
+    content: blockquoteContent,
+    tokens: nestedTokens,
+    _endIndex: i
+  };
 }
 
 // Parse a list and return a list token with items
@@ -254,6 +345,33 @@ function parseInline(text) {
   return tokens;
 }
 
+// Render code block to HTML (content is literal, not parsed)
+function renderCodeBlock(codeToken) {
+  const languageClass = codeToken.language ? ` class="language-${escapeHtml(codeToken.language)}"` : "";
+  return `<pre><code${languageClass}>${escapeHtml(codeToken.content)}</code></pre>`;
+}
+
+// Render blockquote to HTML
+function renderBlockquote(blockquoteToken) {
+  let html = "<blockquote>";
+  for (const token of blockquoteToken.tokens) {
+    if (token.type === "heading") {
+      const tag = `h${token.level}`;
+      html += `<${tag}>` + renderInline(token.content) + `</${tag}>`;
+    } else if (token.type === "paragraph") {
+      html += "<p>" + renderInline(token.content) + "</p>";
+    } else if (token.type === "ordered-list" || token.type === "unordered-list") {
+      html += renderList(token);
+    } else if (token.type === "blockquote") {
+      html += renderBlockquote(token);
+    } else if (token.type === "code-block") {
+      html += renderCodeBlock(token);
+    }
+  }
+  html += "</blockquote>";
+  return html;
+}
+
 // Render inline tokens to HTML
 function renderInline(text) {
   const inlineTokens = parseInline(text);
@@ -310,6 +428,10 @@ export function compile(markdown) {
       html += "<p>" + renderInline(token.content) + "</p>";
     } else if (token.type === "ordered-list" || token.type === "unordered-list") {
       html += renderList(token);
+    } else if (token.type === "code-block") {
+      html += renderCodeBlock(token);
+    } else if (token.type === "blockquote") {
+      html += renderBlockquote(token);
     }
   }
 
