@@ -128,6 +128,18 @@ console.log(compile('# Hello'));
 console.log(compile('**bold** and *italic* and `code`'));
 // → '<p><strong>bold</strong> and <em>italic</em> and <code>code</code></p>'
 
+// Links
+console.log(compile('[click here](https://example.com)'));
+// → '<p><a href="https://example.com">click here</a></p>'
+
+// Images
+console.log(compile('![alt text](/image.png)'));
+// → '<p><img src="/image.png" alt="alt text"/></p>'
+
+// Formatting inside links
+console.log(compile('[**bold link**](https://example.com)'));
+// → '<p><a href="https://example.com"><strong>bold link</strong></a></p>'
+
 // Automatic HTML escaping (XSS-safe)
 console.log(compile('<script>alert("xss")</script>'));
 // → '<p>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</p>'
@@ -145,13 +157,14 @@ console.log(tokenize('# Heading\nParagraph'));
 //   ]
 ```
 
-### Supported Features (Phase 1)
+### Supported Features (Phase 1-2)
 
 - **Block elements:** headings (`#` to `######`), paragraphs
 - **Inline formatting:** bold (`**text**`), italic (`*text*`), inline code (`` `code` ``), strikethrough (`~~text~~`)
-- **Security:** all user input HTML-escaped to prevent XSS
+- **Links and images:** `[text](url)` → `<a>`, `![alt](src)` → `<img/>` with inline formatting support
+- **Security:** all user input HTML-escaped to prevent XSS, attribute breakout-safe
 
-Upcoming features: lists, links, code blocks, blockquotes, tables, task lists, and more.
+Upcoming features: lists, code blocks, blockquotes, tables, task lists, and more.
 
 ## Configuration
 
