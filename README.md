@@ -111,26 +111,47 @@ The pipeline runs as GitHub Actions workflows. An LLM supervisor gathers reposit
 
 ## Examples
 
-Below are quick examples showing how to use the fizzBuzz library from this repository.
+### Compile Markdown to HTML
 
-Node (ESM):
+The core API exports two functions:
+
+**`compile(markdown)`** — converts Markdown to HTML string
 
 ```js
-import { fizzBuzz, fizzBuzzSingle } from './src/lib/main.js';
+import { compile } from './src/lib/main.js';
 
-console.log(fizzBuzzSingle(3)); // "Fizz"
-console.log(fizzBuzz(15)); // ["1","2","Fizz",...,"FizzBuzz"]
+// Headings and paragraphs
+console.log(compile('# Hello'));
+// → '<h1>Hello</h1>'
+
+// Inline formatting
+console.log(compile('**bold** and *italic* and `code`'));
+// → '<p><strong>bold</strong> and <em>italic</em> and <code>code</code></p>'
+
+// Automatic HTML escaping (XSS-safe)
+console.log(compile('<script>alert("xss")</script>'));
+// → '<p>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</p>'
 ```
 
-Browser (via src/web/lib.js):
+**`tokenize(markdown)`** — converts Markdown to intermediate tokens for inspection
 
-```html
-<script type="module">
-  import { fizzBuzz, fizzBuzzSingle } from './src/web/lib.js';
-  console.log(fizzBuzz(15));
-  console.log(fizzBuzzSingle(7));
-</script>
+```js
+import { tokenize } from './src/lib/main.js';
+
+console.log(tokenize('# Heading\nParagraph'));
+// → [
+//     { type: 'heading', level: 1, content: 'Heading' },
+//     { type: 'paragraph', content: 'Paragraph' }
+//   ]
 ```
+
+### Supported Features (Phase 1)
+
+- **Block elements:** headings (`#` to `######`), paragraphs
+- **Inline formatting:** bold (`**text**`), italic (`*text*`), inline code (`` `code` ``), strikethrough (`~~text~~`)
+- **Security:** all user input HTML-escaped to prevent XSS
+
+Upcoming features: lists, links, code blocks, blockquotes, tables, task lists, and more.
 
 ## Configuration
 
