@@ -152,6 +152,18 @@ console.log(compile('1. first\n2. second'));
 console.log(compile('- item\n  - **nested**\n- another'));
 // → '<ul><li>item<ul><li><strong>nested</strong></li></ul></li><li>another</li></ul>'
 
+// Code blocks (fenced, language-aware, content not formatted)
+console.log(compile('```js\nconst x = 1;\n```'));
+// → '<pre><code class="language-js">const x = 1;</code></pre>'
+
+// Blockquotes with inline formatting
+console.log(compile('> **important** note'));
+// → '<blockquote><p><strong>important</strong> note</p></blockquote>'
+
+// Nested blockquotes
+console.log(compile('> > deeply nested'));
+// → '<blockquote><blockquote><p>deeply nested</p></blockquote></blockquote>'
+
 // Automatic HTML escaping (XSS-safe)
 console.log(compile('<script>alert("xss")</script>'));
 // → '<p>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</p>'
@@ -169,15 +181,17 @@ console.log(tokenize('# Heading\nParagraph'));
 //   ]
 ```
 
-### Supported Features (Phase 1-3)
+### Supported Features (Phase 1-4)
 
-- **Block elements:** headings (`#` to `######`), paragraphs, lists
+- **Block elements:** headings (`#` to `######`), paragraphs, lists, code blocks, blockquotes
 - **Inline formatting:** bold (`**text**`), italic (`*text*`), inline code (`` `code` ``), strikethrough (`~~text~~`)
 - **Links and images:** `[text](url)` → `<a>`, `![alt](src)` → `<img/>` with inline formatting support
 - **Lists:** unordered (`-`, `*`, `+`), ordered (`1.`, `2.` …), nested lists with indentation
+- **Code blocks:** fenced with language annotation `` ```lang ``; content is literal (not formatted)
+- **Blockquotes:** nested support (`> text`, `> > nested`); content supports inline formatting and nested blocks
 - **Security:** all user input HTML-escaped to prevent XSS, attribute breakout-safe
 
-Upcoming features: code blocks, blockquotes, tables, task lists, and more.
+Upcoming features: tables, task lists, and more.
 
 ## Configuration
 

@@ -592,3 +592,142 @@ describe("Compiler - Lists - XSS Safety", () => {
     expect(html).not.toContain('alert("xss")');
   });
 });
+
+describe("Compiler - Code Blocks", () => {
+  test("compiles fenced code block with language", () => {
+    const html = compile("```js\ncode\n```");
+    expect(html).toContain('<pre><code class="language-js">');
+    expect(html).toContain("code");
+    expect(html).toContain("</code></pre>");
+  });
+
+  test("code block content is escaped", () => {
+    const html = compile("```\n<script>alert('xss')</script>\n```");
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).toContain("&lt;/script&gt;");
+  });
+
+  test("code block content is NOT inline-formatted", () => {
+    const html = compile("```\n**bold** *italic* `code`\n```");
+    expect(html).toContain("**bold**");
+    expect(html).toContain("*italic*");
+    expect(html).toContain("`code`");
+    expect(html).not.toContain("<strong>");
+    expect(html).not.toContain("<em>");
+  });
+
+  test("code block without language", () => {
+    const html = compile("```\ncode here\n```");
+    expect(html).toContain("<pre><code>");
+    expect(html).toContain("code here");
+    expect(html).toContain("</code></pre>");
+  });
+
+  test("code block with multiple lines", () => {
+    const html = compile("```js\nline1\nline2\nline3\n```");
+    expect(html).toContain("line1");
+    expect(html).toContain("line2");
+    expect(html).toContain("line3");
+  });
+
+  test("code block with language class includes language name", () => {
+    const html = compile("```python\nprint('hi')\n```");
+    expect(html).toContain('class="language-python"');
+  });
+
+  test("language name is escaped", () => {
+    const html = compile("```<script>\ncode\n```");
+    expect(html).not.toContain('class="language-<script>');
+    expect(html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("Compiler - Blockquotes", () => {
+  test("compiles simple blockquote", () => {
+    const html = compile("> hello");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("hello");
+    expect(html).toContain("</blockquote>");
+  });
+
+  test("blockquote wraps content in paragraph", () => {
+    const html = compile("> hi");
+    expect(html).toContain("<blockquote><p>hi</p></blockquote>");
+  });
+
+  test("blockquote with inline formatting", () => {
+    const html = compile("> **bold** and *italic*");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<em>italic</em>");
+    expect(html).toContain("</blockquote>");
+  });
+
+  test("blockquote with link", () => {
+    const html = compile("> [link](https://example.com)");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain('<a href="https://example.com">link</a>');
+    expect(html).toContain("</blockquote>");
+  });
+
+  test("nested blockquote", () => {
+    const html = compile("> > nested");
+    expect(html).toContain("<blockquote><blockquote>");
+    expect(html).toContain("nested");
+    expect(html).toContain("</blockquote></blockquote>");
+  });
+
+  test("deeply nested blockquote", () => {
+    const html = compile("> > > deep");
+    expect(html).toContain("<blockquote>");
+    const count = (html.match(/<blockquote>/g) || []).length;
+    expect(count).toBe(3);
+  });
+
+  test("blockquote content is HTML-escaped", () => {
+    const html = compile("> <script>alert('xss')</script>");
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  test("blockquote with code inside", () => {
+    const html = compile("> Use `console.log()` here");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("<code>console.log()</code>");
+    expect(html).toContain("</blockquote>");
+  });
+
+  test("blockquote with multiple lines", () => {
+    const html = compile("> line1\n> line2");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("line1");
+    expect(html).toContain("line2");
+    expect(html).toContain("</blockquote>");
+  });
+
+  test("blockquote followed by paragraph", () => {
+    const html = compile("> quote\ntext");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("quote");
+    expect(html).toContain("</blockquote>");
+    expect(html).toContain("<p>text</p>");
+  });
+});
+
+describe("Compiler - Code Blocks + Blockquotes", () => {
+  test("code block inside blockquote", () => {
+    const html = compile("> ```js\n> code\n> ```");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain('<pre><code class="language-js">');
+    expect(html).toContain("code");
+    expect(html).toContain("</blockquote>");
+  });
+
+  test("blockquote inside code block is literal", () => {
+    const html = compile("```\n> blockquote\n```");
+    expect(html).toContain("<pre><code>");
+    expect(html).toContain("&gt; blockquote");
+    expect(html).not.toContain("<blockquote>");
+  });
+});
