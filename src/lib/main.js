@@ -70,6 +70,15 @@ export function tokenize(markdown) {
       continue;
     }
 
+    // List detection
+    const listMatch = line.match(/^(\s*)([*\-+]|\d+\.)\s+(.+)$/);
+    if (listMatch) {
+      const listToken = parseList(lines, i);
+      tokens.push(listToken);
+      i = listToken._endIndex;
+      continue;
+    }
+
     // Paragraph (default for any other line)
     const inlineTokens = parseInline(trimmed);
     tokens.push({
@@ -81,6 +90,68 @@ export function tokenize(markdown) {
   }
 
   return tokens;
+}
+
+// Parse a list and return a list token with items
+function parseList(lines, startIdx) {
+  const firstLine = lines[startIdx];
+  const firstIndent = firstLine.match(/^(\s*)/)[1].length;
+  const firstListMatch = firstLine.match(/^(\s*)([*\-+]|\d+\.)\s+(.+)$/);
+  const isOrdered = /^\d+\./.test(firstListMatch[2]);
+
+  const items = [];
+  let i = startIdx;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      // Empty line stops the list
+      i++;
+      break;
+    }
+
+    const itemMatch = line.match(/^(\s*)([*\-+]|\d+\.)\s+(.+)$/);
+    if (!itemMatch) {
+      break;
+    }
+
+    const itemIndent = itemMatch[1].length;
+    const marker = itemMatch[2];
+    const itemIsOrdered = /^\d+\./.test(marker);
+
+    // At same indent level as parent
+    if (itemIndent === firstIndent && itemIsOrdered === isOrdered) {
+      const itemText = itemMatch[3];
+      const inlineTokens = parseInline(itemText);
+      items.push({
+        type: "list-item",
+        content: itemText,
+        inline: inlineTokens,
+        children: []
+      });
+      i++;
+    } else if (itemIndent > firstIndent) {
+      // Nested list
+      if (items.length === 0) {
+        i++;
+        continue;
+      }
+      const nestedList = parseList(lines, i);
+      items[items.length - 1].children.push(nestedList);
+      i = nestedList._endIndex;
+    } else {
+      // Different list or less indented, stop
+      break;
+    }
+  }
+
+  return {
+    type: isOrdered ? "ordered-list" : "unordered-list",
+    items,
+    _endIndex: i
+  };
 }
 
 // Parse inline formatting in text
@@ -209,6 +280,23 @@ function renderInline(text) {
   return html;
 }
 
+// Compile list to HTML
+function renderList(listToken) {
+  const tag = listToken.type === "ordered-list" ? "ol" : "ul";
+  let html = `<${tag}>`;
+
+  for (const item of listToken.items) {
+    html += "<li>" + renderInline(item.content);
+    for (const child of item.children) {
+      html += renderList(child);
+    }
+    html += "</li>";
+  }
+
+  html += `</${tag}>`;
+  return html;
+}
+
 // Compiler: converts markdown to HTML
 export function compile(markdown) {
   const tokens = tokenize(markdown);
@@ -220,6 +308,8 @@ export function compile(markdown) {
       html += `<${tag}>` + renderInline(token.content) + `</${tag}>`;
     } else if (token.type === "paragraph") {
       html += "<p>" + renderInline(token.content) + "</p>";
+    } else if (token.type === "ordered-list" || token.type === "unordered-list") {
+      html += renderList(token);
     }
   }
 
