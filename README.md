@@ -140,6 +140,18 @@ console.log(compile('![alt text](/image.png)'));
 console.log(compile('[**bold link**](https://example.com)'));
 // → '<p><a href="https://example.com"><strong>bold link</strong></a></p>'
 
+// Unordered lists
+console.log(compile('- item 1\n- item 2'));
+// → '<ul><li>item 1</li><li>item 2</li></ul>'
+
+// Ordered lists
+console.log(compile('1. first\n2. second'));
+// → '<ol><li>first</li><li>second</li></ol>'
+
+// Nested lists with inline formatting
+console.log(compile('- item\n  - **nested**\n- another'));
+// → '<ul><li>item<ul><li><strong>nested</strong></li></ul></li><li>another</li></ul>'
+
 // Automatic HTML escaping (XSS-safe)
 console.log(compile('<script>alert("xss")</script>'));
 // → '<p>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</p>'
@@ -157,14 +169,15 @@ console.log(tokenize('# Heading\nParagraph'));
 //   ]
 ```
 
-### Supported Features (Phase 1-2)
+### Supported Features (Phase 1-3)
 
-- **Block elements:** headings (`#` to `######`), paragraphs
+- **Block elements:** headings (`#` to `######`), paragraphs, lists
 - **Inline formatting:** bold (`**text**`), italic (`*text*`), inline code (`` `code` ``), strikethrough (`~~text~~`)
 - **Links and images:** `[text](url)` → `<a>`, `![alt](src)` → `<img/>` with inline formatting support
+- **Lists:** unordered (`-`, `*`, `+`), ordered (`1.`, `2.` …), nested lists with indentation
 - **Security:** all user input HTML-escaped to prevent XSS, attribute breakout-safe
 
-Upcoming features: lists, code blocks, blockquotes, tables, task lists, and more.
+Upcoming features: code blocks, blockquotes, tables, task lists, and more.
 
 ## Configuration
 

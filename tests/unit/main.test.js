@@ -382,3 +382,213 @@ describe("Tokenizer - Links and Images", () => {
     expect(result[0].inline).toBeDefined();
   });
 });
+
+describe("Compiler - Unordered Lists", () => {
+  test("compiles simple unordered list with dash", () => {
+    const html = compile("- a\n- b");
+    expect(html).toBe("<ul><li>a</li><li>b</li></ul>");
+  });
+
+  test("compiles unordered list with asterisk", () => {
+    const html = compile("* item1\n* item2");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<li>item1</li>");
+    expect(html).toContain("<li>item2</li>");
+    expect(html).toContain("</ul>");
+  });
+
+  test("compiles unordered list with plus", () => {
+    const html = compile("+ first\n+ second");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<li>first</li>");
+    expect(html).toContain("<li>second</li>");
+    expect(html).toContain("</ul>");
+  });
+
+  test("list items can contain bold formatting", () => {
+    const html = compile("- **bold** item\n- normal");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<li><strong>bold</strong> item</li>");
+  });
+
+  test("list items can contain links", () => {
+    const html = compile("- [link](https://a.b)\n- text");
+    expect(html).toContain('<a href="https://a.b">link</a>');
+  });
+
+  test("list items can contain italic", () => {
+    const html = compile("- *italic* text\n- normal");
+    expect(html).toContain("<em>italic</em>");
+  });
+
+  test("list items can contain code", () => {
+    const html = compile("- `code` item\n- text");
+    expect(html).toContain("<code>code</code>");
+  });
+
+  test("list items with strikethrough", () => {
+    const html = compile("- ~~old~~ new\n- item");
+    expect(html).toContain("<del>old</del>");
+  });
+});
+
+describe("Compiler - Ordered Lists", () => {
+  test("compiles simple ordered list", () => {
+    const html = compile("1. a\n2. b");
+    expect(html).toBe("<ol><li>a</li><li>b</li></ol>");
+  });
+
+  test("compiles ordered list with any number", () => {
+    const html = compile("1. first\n1. second\n1. third");
+    expect(html).toContain("<ol>");
+    expect(html).toContain("<li>first</li>");
+    expect(html).toContain("<li>second</li>");
+    expect(html).toContain("<li>third</li>");
+    expect(html).toContain("</ol>");
+  });
+
+  test("ordered list items can contain bold", () => {
+    const html = compile("1. **bold** item\n2. normal");
+    expect(html).toContain("<strong>bold</strong>");
+  });
+
+  test("ordered list items can contain links", () => {
+    const html = compile("1. [link](https://a.b)\n2. text");
+    expect(html).toContain('<a href="https://a.b">link</a>');
+  });
+
+  test("ordered list items can contain inline formatting", () => {
+    const html = compile("1. `code` and *italic*\n2. ~~strike~~");
+    expect(html).toContain("<code>code</code>");
+    expect(html).toContain("<em>italic</em>");
+    expect(html).toContain("<del>strike</del>");
+  });
+});
+
+describe("Compiler - Nested Lists", () => {
+  test("nested unordered list inside unordered list", () => {
+    const html = compile("- a\n  - nested\n- b");
+    expect(html).toContain("<li>a<ul><li>nested</li></ul></li>");
+    expect(html).toContain("<li>b</li>");
+  });
+
+  test("nested ordered list inside unordered list", () => {
+    const html = compile("- a\n  1. nested1\n  2. nested2\n- b");
+    expect(html).toContain("<li>a<ol>");
+    expect(html).toContain("<li>nested1</li>");
+    expect(html).toContain("<li>nested2</li>");
+    expect(html).toContain("</ol></li>");
+  });
+
+  test("nested unordered list inside ordered list", () => {
+    const html = compile("1. a\n   - nested\n2. b");
+    expect(html).toContain("<li>a<ul><li>nested</li></ul></li>");
+    expect(html).toContain("<li>b</li>");
+  });
+
+  test("deeply nested lists", () => {
+    const html = compile("- a\n  - b\n    - c\n  - d");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<li>a");
+    expect(html).toContain("<li>b");
+    expect(html).toContain("<li>c</li>");
+    expect(html).toContain("<li>d</li>");
+  });
+
+  test("nested list items can contain formatting", () => {
+    const html = compile("- a\n  - **bold** nested\n- b");
+    expect(html).toContain("<strong>bold</strong>");
+  });
+
+  test("multiple nested items", () => {
+    const html = compile("- a\n  - n1\n  - n2\n  - n3\n- b");
+    expect(html).toContain("<li>a<ul><li>n1</li><li>n2</li><li>n3</li></ul></li>");
+  });
+});
+
+describe("Tokenizer - Lists", () => {
+  test("tokenizes unordered list", () => {
+    const result = tokenize("- a\n- b");
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe("unordered-list");
+    expect(result[0].items).toHaveLength(2);
+    expect(result[0].items[0].content).toBe("a");
+    expect(result[0].items[1].content).toBe("b");
+  });
+
+  test("tokenizes ordered list", () => {
+    const result = tokenize("1. a\n2. b");
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe("ordered-list");
+    expect(result[0].items).toHaveLength(2);
+    expect(result[0].items[0].content).toBe("a");
+  });
+
+  test("tokenizes nested list", () => {
+    const result = tokenize("- a\n  - nested");
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe("unordered-list");
+    expect(result[0].items[0].children).toHaveLength(1);
+    expect(result[0].items[0].children[0].type).toBe("unordered-list");
+  });
+
+  test("list items have inline tokens", () => {
+    const result = tokenize("- **bold**\n- text");
+    expect(result[0].items[0].inline).toBeDefined();
+    expect(result[0].items[0].inline.some(t => t.type === "bold")).toBe(true);
+  });
+});
+
+describe("Compiler - Lists with Multiple Paragraphs", () => {
+  test("list followed by paragraph", () => {
+    const html = compile("- item\nParagraph");
+    expect(html).toContain("<ul><li>item</li></ul>");
+    expect(html).toContain("<p>Paragraph</p>");
+  });
+
+  test("paragraph followed by list", () => {
+    const html = compile("Paragraph\n- item");
+    expect(html).toContain("<p>Paragraph</p>");
+    expect(html).toContain("<ul><li>item</li></ul>");
+  });
+
+  test("heading followed by list", () => {
+    const html = compile("# Heading\n- item");
+    expect(html).toContain("<h1>Heading</h1>");
+    expect(html).toContain("<ul><li>item</li></ul>");
+  });
+});
+
+describe("Compiler - Mixed List Types", () => {
+  test("two separate unordered lists", () => {
+    const html = compile("- a\n- b\n\n- c\n- d");
+    const ulMatches = html.match(/<ul>/g);
+    expect(ulMatches).toHaveLength(2);
+  });
+
+  test("unordered list and ordered list are separate", () => {
+    const html = compile("- a\n- b\n\n1. c\n2. d");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<ol>");
+  });
+});
+
+describe("Compiler - Lists - XSS Safety", () => {
+  test("escapes HTML in list items", () => {
+    const html = compile("- <script>alert</script>\n- text");
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  test("escapes HTML in nested list items", () => {
+    const html = compile("- a\n  - <img src=x>\n- b");
+    expect(html).not.toContain("<img src=x>");
+    expect(html).toContain("&lt;img");
+  });
+
+  test("escapes URLs in list item links", () => {
+    const html = compile('- [text](javascript:alert("xss"))');
+    expect(html).toContain("&quot;");
+    expect(html).not.toContain('alert("xss")');
+  });
+});
