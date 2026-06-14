@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT
+name: on-screenshot
+on:
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  screenshot:
+    uses: polycode-public/agentic-lib/.github/workflows/screenshot-publish.yml@v8
