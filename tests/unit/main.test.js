@@ -731,3 +731,150 @@ describe("Compiler - Code Blocks + Blockquotes", () => {
     expect(html).not.toContain("<blockquote>");
   });
 });
+
+describe("Compiler - Horizontal Rules", () => {
+  test("compiles dash horizontal rule", () => {
+    expect(compile("---")).toBe("<hr/>");
+  });
+
+  test("compiles asterisk horizontal rule", () => {
+    expect(compile("***")).toBe("<hr/>");
+  });
+
+  test("compiles underscore horizontal rule", () => {
+    expect(compile("___")).toBe("<hr/>");
+  });
+
+  test("horizontal rule with extra dashes", () => {
+    expect(compile("-----")).toBe("<hr/>");
+  });
+
+  test("horizontal rule with spaces", () => {
+    expect(compile("---   ")).toBe("<hr/>");
+  });
+
+  test("horizontal rule between paragraphs", () => {
+    const html = compile("text\n---\nmore");
+    expect(html).toContain("<p>text</p>");
+    expect(html).toContain("<hr/>");
+    expect(html).toContain("<p>more</p>");
+  });
+
+  test("multiple horizontal rules", () => {
+    const html = compile("---\n\n***\n\n___");
+    const hrCount = (html.match(/<hr\/>/g) || []).length;
+    expect(hrCount).toBe(3);
+  });
+});
+
+describe("Compiler - Tables", () => {
+  test("compiles simple table", () => {
+    const html = compile("| a | b |\n|---|---|\n| 1 | 2 |");
+    expect(html).toContain("<table>");
+    expect(html).toContain("<thead>");
+    expect(html).toContain("<tbody>");
+    expect(html).toContain("<th>a</th>");
+    expect(html).toContain("<th>b</th>");
+    expect(html).toContain("<td>1</td>");
+    expect(html).toContain("<td>2</td>");
+    expect(html).toContain("</table>");
+  });
+
+  test("table with left alignment", () => {
+    const html = compile("| left |\n|:---|\n| cell |");
+    expect(html).toContain('style="text-align:left"');
+  });
+
+  test("table with center alignment", () => {
+    const html = compile("| center |\n|:-:|\n| cell |");
+    expect(html).toContain('style="text-align:center"');
+  });
+
+  test("table with right alignment", () => {
+    const html = compile("| right |\n|--:|\n| cell |");
+    expect(html).toContain('style="text-align:right"');
+  });
+
+  test("table with mixed alignment", () => {
+    const html = compile("| left | center | right |\n|:---|:-:|--:|\n| a | b | c |");
+    expect(html).toContain('style="text-align:left"');
+    expect(html).toContain('style="text-align:center"');
+    expect(html).toContain('style="text-align:right"');
+  });
+
+  test("table with multiple rows", () => {
+    const html = compile("| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |");
+    expect(html).toContain("<td>1</td>");
+    expect(html).toContain("<td>2</td>");
+    expect(html).toContain("<td>3</td>");
+    expect(html).toContain("<td>4</td>");
+  });
+
+  test("table with inline formatting in cells", () => {
+    const html = compile("| **bold** | *italic* |\n|---|---|\n| `code` | [link](url) |");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<em>italic</em>");
+    expect(html).toContain("<code>code</code>");
+    expect(html).toContain('<a href="url">link</a>');
+  });
+
+  test("table cells with escaping", () => {
+    const html = compile("| <script> | test |\n|---|---|\n| a | b |");
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  test("table followed by paragraph", () => {
+    const html = compile("| a |\n|---|\n| b |\n\nParagraph");
+    expect(html).toContain("<table>");
+    expect(html).toContain("<p>Paragraph</p>");
+  });
+
+  test("paragraph followed by table", () => {
+    const html = compile("Paragraph\n\n| a |\n|---|\n| b |");
+    expect(html).toContain("<p>Paragraph</p>");
+    expect(html).toContain("<table>");
+  });
+});
+
+describe("Tokenizer - Tables", () => {
+  test("tokenizes table", () => {
+    const result = tokenize("| a |\n|---|\n| b |");
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe("table");
+    expect(result[0].headers).toEqual(["a"]);
+    expect(result[0].rows).toHaveLength(1);
+    expect(result[0].rows[0]).toEqual(["b"]);
+  });
+
+  test("tokenizes table with alignment", () => {
+    const result = tokenize("| left | center | right |\n|:---|:-:|--:|\n| a | b | c |");
+    expect(result[0].type).toBe("table");
+    expect(result[0].alignments).toEqual(["left", "center", "right"]);
+  });
+
+  test("tokenizes table with multiple rows", () => {
+    const result = tokenize("| h |\n|---|\n| r1 |\n| r2 |");
+    expect(result[0].rows).toHaveLength(2);
+  });
+});
+
+describe("Tokenizer - Horizontal Rules", () => {
+  test("tokenizes dash horizontal rule", () => {
+    const result = tokenize("---");
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe("hr");
+  });
+
+  test("tokenizes asterisk horizontal rule", () => {
+    const result = tokenize("***");
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe("hr");
+  });
+
+  test("tokenizes horizontal rule with context", () => {
+    const result = tokenize("text\n---\nmore");
+    expect(result).toHaveLength(3);
+    expect(result[1].type).toBe("hr");
+  });
+});

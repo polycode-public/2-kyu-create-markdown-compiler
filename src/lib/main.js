@@ -54,6 +54,13 @@ export function tokenize(markdown) {
       continue;
     }
 
+    // Horizontal rule
+    if (/^(-{3,}|_{3,}|\*{3,})\s*$/.test(trimmed)) {
+      tokens.push({ type: "hr" });
+      i++;
+      continue;
+    }
+
     // Fenced code block
     if (trimmed.startsWith("```")) {
       const codeToken = parseCodeBlock(lines, i);
@@ -86,6 +93,17 @@ export function tokenize(markdown) {
       continue;
     }
 
+    // Table detection (must have pipe and next line must be delimiter)
+    if (trimmed.includes("|") && i + 1 < lines.length) {
+      const nextLine = lines[i + 1].trim();
+      if (isTableDelimiter(nextLine)) {
+        const tableToken = parseTable(lines, i);
+        tokens.push(tableToken);
+        i = tableToken._endIndex;
+        continue;
+      }
+    }
+
     // List detection
     const listMatch = line.match(/^(\s*)([*\-+]|\d+\.)\s+(.+)$/);
     if (listMatch) {
@@ -106,6 +124,64 @@ export function tokenize(markdown) {
   }
 
   return tokens;
+}
+
+// Check if a line is a table delimiter row
+function isTableDelimiter(line) {
+  const cells = line.split("|").map(c => c.trim()).filter(c => c);
+  if (cells.length === 0) return false;
+  for (const cell of cells) {
+    if (!/^:?-+:?$/.test(cell)) return false;
+  }
+  return true;
+}
+
+// Parse table alignment from delimiter cell (e.g., :-- for left, :-: for center, --: for right)
+function parseAlignment(delimiter) {
+  delimiter = delimiter.trim();
+  const leftColon = delimiter.startsWith(":");
+  const rightColon = delimiter.endsWith(":");
+
+  if (leftColon && rightColon) return "center";
+  if (rightColon) return "right";
+  if (leftColon) return "left";
+  return null;
+}
+
+// Parse a table (GFM pipe syntax)
+function parseTable(lines, startIdx) {
+  const headerLine = lines[startIdx].trim();
+  const delimiterLine = lines[startIdx + 1].trim();
+
+  // Parse header cells
+  const headerCells = headerLine.split("|").map(c => c.trim()).filter(c => c);
+
+  // Parse alignment from delimiter
+  const delimiterCells = delimiterLine.split("|").map(c => c.trim()).filter(c => c);
+  const alignments = delimiterCells.map(parseAlignment);
+
+  // Parse body rows
+  const rows = [];
+  let i = startIdx + 2;
+
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (!line || !line.includes("|")) break;
+
+    const cells = line.split("|").map(c => c.trim()).filter(c => c);
+    if (cells.length === 0) break;
+
+    rows.push(cells);
+    i++;
+  }
+
+  return {
+    type: "table",
+    headers: headerCells,
+    alignments,
+    rows,
+    _endIndex: i
+  };
 }
 
 // Parse a fenced code block
@@ -372,6 +448,36 @@ function renderBlockquote(blockquoteToken) {
   return html;
 }
 
+// Render table to HTML
+function renderTable(tableToken) {
+  let html = "<table>";
+
+  // Render header
+  html += "<thead><tr>";
+  for (let i = 0; i < tableToken.headers.length; i++) {
+    const alignment = tableToken.alignments[i];
+    const style = alignment ? ` style="text-align:${alignment}"` : "";
+    html += `<th${style}>` + renderInline(tableToken.headers[i]) + "</th>";
+  }
+  html += "</tr></thead>";
+
+  // Render body
+  html += "<tbody>";
+  for (const row of tableToken.rows) {
+    html += "<tr>";
+    for (let i = 0; i < row.length; i++) {
+      const alignment = tableToken.alignments[i];
+      const style = alignment ? ` style="text-align:${alignment}"` : "";
+      html += `<td${style}>` + renderInline(row[i]) + "</td>";
+    }
+    html += "</tr>";
+  }
+  html += "</tbody>";
+
+  html += "</table>";
+  return html;
+}
+
 // Render inline tokens to HTML
 function renderInline(text) {
   const inlineTokens = parseInline(text);
@@ -432,6 +538,10 @@ export function compile(markdown) {
       html += renderCodeBlock(token);
     } else if (token.type === "blockquote") {
       html += renderBlockquote(token);
+    } else if (token.type === "table") {
+      html += renderTable(token);
+    } else if (token.type === "hr") {
+      html += "<hr/>";
     }
   }
 
