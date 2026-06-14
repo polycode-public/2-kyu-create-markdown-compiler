@@ -878,3 +878,183 @@ describe("Tokenizer - Horizontal Rules", () => {
     expect(result[1].type).toBe("hr");
   });
 });
+
+describe("Compiler - Task Lists", () => {
+  test("compiles unchecked task item", () => {
+    const html = compile("- [ ] todo");
+    expect(html).toContain("<li>");
+    expect(html).toContain("<input type=\"checkbox\" disabled/>");
+    expect(html).toContain("todo");
+    expect(html).toContain("</li>");
+    expect(html).not.toContain("checked");
+  });
+
+  test("compiles checked task item", () => {
+    const html = compile("- [x] done");
+    expect(html).toContain("<input type=\"checkbox\" checked disabled/>");
+    expect(html).toContain("done");
+  });
+
+  test("compiles task list with multiple items", () => {
+    const html = compile("- [ ] first\n- [x] second\n- [ ] third");
+    const checkboxes = (html.match(/<input type="checkbox"/g) || []).length;
+    expect(checkboxes).toBe(3);
+    expect(html).toContain("first");
+    expect(html).toContain("second");
+    expect(html).toContain("third");
+  });
+
+  test("task list renders as <ul>", () => {
+    const html = compile("- [ ] item");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("</ul>");
+  });
+
+  test("checkbox is disabled", () => {
+    const html = compile("- [x] task");
+    expect(html).toContain("disabled");
+  });
+
+  test("task items can contain formatting", () => {
+    const html = compile("- [x] **bold** task with *italic*");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<em>italic</em>");
+  });
+
+  test("task items can contain links", () => {
+    const html = compile("- [ ] [check](https://example.com)");
+    expect(html).toContain('<a href="https://example.com">check</a>');
+  });
+
+  test("task items can contain code", () => {
+    const html = compile("- [ ] run `npm test`");
+    expect(html).toContain("<code>npm test</code>");
+  });
+
+  test("uppercase X marks task as checked", () => {
+    const html = compile("- [X] done");
+    expect(html).toContain("<input type=\"checkbox\" checked disabled/>");
+  });
+});
+
+describe("Compiler - Auto-linked URLs", () => {
+  test("converts bare https URL to link", () => {
+    const html = compile("Visit https://example.com for info");
+    expect(html).toContain('<a href="https://example.com">https://example.com</a>');
+  });
+
+  test("converts bare http URL to link", () => {
+    const html = compile("Go to http://example.com");
+    expect(html).toContain('<a href="http://example.com">http://example.com</a>');
+  });
+
+  test("auto-link stops at whitespace", () => {
+    const html = compile("https://example.com is great");
+    expect(html).toContain('<a href="https://example.com">https://example.com</a>');
+    expect(html).toContain("is great");
+  });
+
+  test("auto-link stops at closing parenthesis", () => {
+    const html = compile("(https://example.com)");
+    expect(html).toContain('<a href="https://example.com">https://example.com</a>');
+  });
+
+  test("auto-link in paragraph", () => {
+    const html = compile("Check https://a.b for details");
+    expect(html).toContain("<p>");
+    expect(html).toContain('<a href="https://a.b">https://a.b</a>');
+    expect(html).toContain("</p>");
+  });
+
+  test("multiple auto-links in one paragraph", () => {
+    const html = compile("https://a.b and https://c.d");
+    expect(html).toContain('<a href="https://a.b">https://a.b</a>');
+    expect(html).toContain('<a href="https://c.d">https://c.d</a>');
+  });
+
+  test("auto-link escapes URL in href", () => {
+    const html = compile("https://a.b?x=1&y=2");
+    expect(html).toContain('<a href="https://a.b?x=1&amp;y=2">');
+  });
+
+  test("auto-link in list item", () => {
+    const html = compile("- Visit https://example.com");
+    expect(html).toContain('<a href="https://example.com">https://example.com</a>');
+  });
+
+  test("auto-link in heading", () => {
+    const html = compile("# Check https://example.com");
+    expect(html).toContain("<h1>");
+    expect(html).toContain('<a href="https://example.com">https://example.com</a>');
+    expect(html).toContain("</h1>");
+  });
+});
+
+describe("Compiler - Well-Formed HTML", () => {
+  function countBalancedTags(html) {
+    const openTags = (html.match(/<(?!\/)[a-z][^>]*(?<!\/)>/g) || []).length;
+    const closeTags = (html.match(/<\/[a-z][^>]*>/g) || []).length;
+    const selfClosing = (html.match(/<[a-z][^>]*\/>/g) || []).length;
+    const inputTags = (html.match(/<input[^>]*>/g) || []).length;
+    return { openTags, closeTags, selfClosing, inputTags, balanced: openTags === closeTags };
+  }
+
+  test("balanced tags on simple document", () => {
+    const html = compile("# Title\nParagraph with **bold** and *italic*");
+    const { balanced } = countBalancedTags(html);
+    expect(balanced).toBe(true);
+  });
+
+  test("balanced tags in sample document", () => {
+    const sample = `# Markdown Compiler
+
+This is a **comprehensive** test of all 10 feature areas.
+
+## 1. Headings and Paragraphs
+You're reading them now. Simple paragraphs with text.
+
+## 2. Inline Formatting
+This has **bold**, *italic*, \`code\`, and ~~strikethrough~~ text.
+
+## 3. Links and Images
+Check [this link](https://example.com) and ![alt text](/image.png).
+
+## 4. Lists (Unordered)
+- First item
+- Second item
+  - Nested item
+- Third item
+
+## 5. Ordered Lists
+1. One
+2. Two
+3. Three
+
+## 6. Code Blocks
+\`\`\`js
+console.log('Hello');
+\`\`\`
+
+## 7. Blockquotes
+> This is a quote
+> With multiple lines
+
+## 8. Tables
+| Name | Value |
+|------|-------|
+| A | 1 |
+| B | 2 |
+
+## 9. Task Lists
+- [x] Done
+- [ ] Todo
+
+## 10. Auto-linked URLs
+Visit https://example.com for more info.
+
+---`;
+    const html = compile(sample);
+    const { balanced } = countBalancedTags(html);
+    expect(balanced).toBe(true);
+  });
+});
