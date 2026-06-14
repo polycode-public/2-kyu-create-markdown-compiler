@@ -1058,3 +1058,79 @@ Visit https://example.com for more info.
     expect(balanced).toBe(true);
   });
 });
+
+describe("Sample Document", () => {
+  test("generates sample.html from sample.md", async () => {
+    const { readFileSync, writeFileSync, mkdirSync } = await import("fs");
+    const { dirname } = await import("path");
+
+    const markdown = readFileSync("docs/examples/sample.md", "utf8");
+    expect(markdown.length).toBeGreaterThan(0);
+
+    const html = compile(markdown);
+    expect(html.length).toBeGreaterThan(0);
+
+    mkdirSync(dirname("docs/examples/sample.html"), { recursive: true });
+    writeFileSync("docs/examples/sample.html", html);
+  });
+
+  test("sample.html file is well-formed", async () => {
+    const { readFileSync } = await import("fs");
+
+    const html = readFileSync("docs/examples/sample.html", "utf8");
+    expect(html.length).toBeGreaterThan(0);
+
+    // Check that opening and closing tags are balanced
+    const openTags = (html.match(/<(?!\/)[a-z][^>]*(?<!\/)>/g) || []).length;
+    const closeTags = (html.match(/<\/[a-z][^>]*>/g) || []).length;
+    expect(openTags).toBe(closeTags);
+  });
+
+  test("sample.html contains all 10 feature areas", async () => {
+    const { readFileSync } = await import("fs");
+
+    const html = readFileSync("docs/examples/sample.html", "utf8");
+
+    // 1. Headings
+    expect(html).toMatch(/<h[1-6][^>]*>/);
+
+    // 2. Inline formatting (bold, italic, code, strikethrough)
+    expect(html).toContain("<strong>");
+    expect(html).toContain("<em>");
+    expect(html).toContain("<code>");
+    expect(html).toContain("<del>");
+
+    // 3. Links
+    expect(html).toContain('<a href=');
+
+    // 4. Images
+    expect(html).toContain('<img');
+
+    // 5. Ordered lists
+    expect(html).toContain("<ol>");
+
+    // 6. Unordered lists
+    expect(html).toContain("<ul>");
+
+    // 7. Code blocks
+    expect(html).toContain("<pre>");
+
+    // 8. Blockquotes
+    expect(html).toContain("<blockquote>");
+
+    // 9. Tables
+    expect(html).toContain("<table>");
+
+    // 10. Horizontal rule
+    expect(html).toContain("<hr/>");
+  });
+
+  test("sample.html contains task list", async () => {
+    const { readFileSync } = await import("fs");
+
+    const html = readFileSync("docs/examples/sample.html", "utf8");
+
+    // Task lists use checkboxes
+    expect(html).toContain('<input type="checkbox"');
+  });
+});
