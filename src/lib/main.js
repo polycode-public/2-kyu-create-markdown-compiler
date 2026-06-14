@@ -104,6 +104,15 @@ export function tokenize(markdown) {
       }
     }
 
+    // Task list detection (- [ ] or - [x])
+    const taskListMatch = line.match(/^(\s*)[-*+]\s+\[([ xX])\]\s+(.+)$/);
+    if (taskListMatch) {
+      const taskListToken = parseTaskList(lines, i);
+      tokens.push(taskListToken);
+      i = taskListToken._endIndex;
+      continue;
+    }
+
     // List detection
     const listMatch = line.match(/^(\s*)([*\-+]|\d+\.)\s+(.+)$/);
     if (listMatch) {
@@ -259,6 +268,62 @@ function parseBlockquote(lines, startIdx) {
   };
 }
 
+// Parse a task list (- [ ] or - [x] items)
+function parseTaskList(lines, startIdx) {
+  const firstLine = lines[startIdx];
+  const firstIndent = firstLine.match(/^(\s*)/)[1].length;
+
+  const items = [];
+  let i = startIdx;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      i++;
+      break;
+    }
+
+    const taskMatch = line.match(/^(\s*)[-*+]\s+\[([ xX])\]\s+(.+)$/);
+    if (!taskMatch) {
+      break;
+    }
+
+    const itemIndent = taskMatch[1].length;
+    const isChecked = taskMatch[2].toLowerCase() === 'x';
+    const itemText = taskMatch[3];
+
+    if (itemIndent === firstIndent) {
+      const inlineTokens = parseInline(itemText);
+      items.push({
+        type: "task-item",
+        content: itemText,
+        checked: isChecked,
+        inline: inlineTokens,
+        children: []
+      });
+      i++;
+    } else if (itemIndent > firstIndent) {
+      if (items.length === 0) {
+        i++;
+        continue;
+      }
+      const nestedTaskList = parseTaskList(lines, i);
+      items[items.length - 1].children.push(nestedTaskList);
+      i = nestedTaskList._endIndex;
+    } else {
+      break;
+    }
+  }
+
+  return {
+    type: "task-list",
+    items,
+    _endIndex: i
+  };
+}
+
 // Parse a list and return a list token with items
 function parseList(lines, startIdx) {
   const firstLine = lines[startIdx];
@@ -401,11 +466,28 @@ function parseInline(text) {
       }
     }
 
+    // Auto-linked URL (https://... or http://...)
+    if (text.slice(i, i + 8) === "https://" || text.slice(i, i + 7) === "http://") {
+      const urlStart = i;
+      let urlEnd = i;
+      while (urlEnd < text.length) {
+        const char = text[urlEnd];
+        if (char === " " || char === "\n" || char === ")" || char === "]" || char === ">" || char === "<") break;
+        urlEnd++;
+      }
+      const url = text.slice(urlStart, urlEnd);
+      tokens.push({ type: "auto-link", url });
+      i = urlEnd;
+      continue;
+    }
+
     // Regular text until next marker
     let end = i + 1;
     while (end < text.length) {
       const char = text[end];
       if (char === "*" || char === "`" || char === "~" || char === "[" || (char === "!" && text[end + 1] === "[")) break;
+      // Stop at auto-link start
+      if (text.slice(end, end + 8) === "https://" || text.slice(end, end + 7) === "http://") break;
       end++;
     }
 
@@ -496,11 +578,34 @@ function renderInline(text) {
       html += "<del>" + renderInline(token.content) + "</del>";
     } else if (token.type === "link") {
       html += "<a href=\"" + escapeHtml(token.url) + "\">" + renderInline(token.content) + "</a>";
+    } else if (token.type === "auto-link") {
+      html += "<a href=\"" + escapeHtml(token.url) + "\">" + escapeHtml(token.url) + "</a>";
     } else if (token.type === "image") {
       html += "<img src=\"" + escapeHtml(token.src) + "\" alt=\"" + escapeHtml(token.alt) + "\"/>";
     }
   }
 
+  return html;
+}
+
+// Render task list to HTML
+function renderTaskList(taskListToken) {
+  let html = "<ul>";
+
+  for (const item of taskListToken.items) {
+    const checkbox = `<input type="checkbox"${item.checked ? " checked" : ""} disabled/>`;
+    html += "<li>" + checkbox + " " + renderInline(item.content);
+    for (const child of item.children) {
+      if (child.type === "task-list") {
+        html += renderTaskList(child);
+      } else {
+        html += renderList(child);
+      }
+    }
+    html += "</li>";
+  }
+
+  html += "</ul>";
   return html;
 }
 
@@ -532,6 +637,8 @@ export function compile(markdown) {
       html += `<${tag}>` + renderInline(token.content) + `</${tag}>`;
     } else if (token.type === "paragraph") {
       html += "<p>" + renderInline(token.content) + "</p>";
+    } else if (token.type === "task-list") {
+      html += renderTaskList(token);
     } else if (token.type === "ordered-list" || token.type === "unordered-list") {
       html += renderList(token);
     } else if (token.type === "code-block") {
