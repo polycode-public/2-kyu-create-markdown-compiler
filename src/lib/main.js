@@ -674,3 +674,6 @@ if (isNode) {
     main(args);
   }
 }
+
+// demo() — exercised by src/web/lib.js renderDemo for the showcase screenshot.
+export const demo = () => compile("# intention\n\n**Markdown** to _HTML_ with [links](https://intention.com), `code`, and a list:\n\n- alpha\n- beta");
