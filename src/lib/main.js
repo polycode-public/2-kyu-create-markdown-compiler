@@ -229,6 +229,34 @@ function tokenizeListItems(lines, startIdx, baseIndent = null) {
   return { items, nextIdx: i };
 }
 
+function isHorizontalRule(line) {
+  const trimmed = line.trim();
+  return /^(-{3,}|\*{3,}|_{3,})$/.test(trimmed);
+}
+
+function isTableDelimiter(line) {
+  const trimmed = line.trim();
+  if (!trimmed.includes("|")) return false;
+  const cells = trimmed.split("|").map((c) => c.trim());
+  return cells.every((cell) => /^:?-+:?$/.test(cell) || cell === "");
+}
+
+function parseTableAlignment(cell) {
+  cell = cell.trim();
+  if (cell.startsWith(":") && cell.endsWith(":")) return "center";
+  if (cell.startsWith(":")) return "left";
+  if (cell.endsWith(":")) return "right";
+  return null;
+}
+
+function parseTableRow(line) {
+  const trimmed = line.trim();
+  const cells = trimmed.split("|").map((c) => c.trim());
+  if (cells[0] === "") cells.shift();
+  if (cells[cells.length - 1] === "") cells.pop();
+  return cells;
+}
+
 export function tokenize(markdown) {
   const lines = markdown.split(/\r?\n/);
   const tokens = [];
@@ -239,6 +267,16 @@ export function tokenize(markdown) {
     const trimmed = line.trim();
 
     if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    // Check for horizontal rule
+    if (isHorizontalRule(line)) {
+      tokens.push({
+        type: "horizontal-rule",
+        raw: line,
+      });
       i++;
       continue;
     }
@@ -314,6 +352,34 @@ export function tokenize(markdown) {
       });
       i++;
       continue;
+    }
+
+    // Check for table (pipe-delimited with potential delimiter row)
+    if (trimmed.includes("|")) {
+      if (i + 1 < lines.length && isTableDelimiter(lines[i + 1])) {
+        const headerRow = parseTableRow(line);
+        const delimiterRow = parseTableRow(lines[i + 1]);
+        const alignments = delimiterRow.map((cell) => parseTableAlignment(cell));
+
+        const bodyRows = [];
+        let j = i + 2;
+        while (j < lines.length) {
+          const bodyLine = lines[j].trim();
+          if (!bodyLine || !bodyLine.includes("|")) break;
+          bodyRows.push(parseTableRow(lines[j]));
+          j++;
+        }
+
+        tokens.push({
+          type: "table",
+          raw: lines.slice(i, j).join("\n"),
+          header: headerRow,
+          alignments,
+          rows: bodyRows,
+        });
+        i = j;
+        continue;
+      }
     }
 
     const unorderedMatch = trimmed.match(/^[-*+]\s+(.+)$/);
@@ -502,6 +568,31 @@ function renderBlockquoteContent(lines) {
   return html;
 }
 
+function renderTable(token) {
+  const headerCells = token.header
+    .map((cell, idx) => {
+      const align = token.alignments[idx];
+      const alignAttr = align ? ` align="${align}"` : "";
+      return `<th${alignAttr}>${renderInline(cell)}</th>`;
+    })
+    .join("");
+
+  const bodyRows = token.rows
+    .map((row) => {
+      const cells = row
+        .map((cell, idx) => {
+          const align = token.alignments[idx];
+          const alignAttr = align ? ` align="${align}"` : "";
+          return `<td${alignAttr}>${renderInline(cell)}</td>`;
+        })
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  return `<table><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+}
+
 export function compile(markdown) {
   const tokens = tokenize(markdown);
   const html = tokens
@@ -524,6 +615,12 @@ export function compile(markdown) {
       if (token.type === "blockquote") {
         return renderBlockquote(token.lines);
       }
+      if (token.type === "horizontal-rule") {
+        return "<hr/>";
+      }
+      if (token.type === "table") {
+        return renderTable(token);
+      }
       return "";
     })
     .join("");
@@ -532,7 +629,7 @@ export function compile(markdown) {
 }
 
 export function demo() {
-  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`, [links](https://example.com), and ![image](https://example.com/pic.png).\n\n## Lists\n\n- Item 1\n- Item 2\n  - Nested 2a\n  - Nested 2b\n- Item 3\n\n1. Ordered 1\n2. Ordered 2\n   - Mixed nested\n3. Ordered 3\n\n## Code Blocks\n\n```js\nconst hello = \"world\";\nconsole.log(hello);\n```\n\n## Blockquotes\n\n> This is a blockquote\n> with multiple lines\n\n> This is a nested blockquote\n> > With a second level\n> > > And even deeper";
+  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`, [links](https://example.com), and ![image](https://example.com/pic.png).\n\n## Lists\n\n- Item 1\n- Item 2\n  - Nested 2a\n  - Nested 2b\n- Item 3\n\n1. Ordered 1\n2. Ordered 2\n   - Mixed nested\n3. Ordered 3\n\n## Code Blocks\n\n```js\nconst hello = \"world\";\nconsole.log(hello);\n```\n\n## Blockquotes\n\n> This is a blockquote\n> with multiple lines\n\n> This is a nested blockquote\n> > With a second level\n> > > And even deeper\n\n---\n\n## Tables\n\n| Left | Center | Right |\n|:-----|:------:|------:|\n| A | B | C |\n| **bold** | *italic* | `code` |\n\n---";
   const html = compile(markdown);
   return { markdown, html };
 }

@@ -166,6 +166,18 @@ console.log(compile('![alt text](/image.png)'));
 // Link text with inline formatting
 console.log(compile('[**bold link**](https://example.com)'));
 // → '<p><a href="https://example.com"><strong>bold link</strong></a></p>'
+
+// Horizontal rules
+console.log(compile('---'));
+// → '<hr/>'
+
+// Tables with alignment
+console.log(compile('| Left | Center | Right |\n|:-----|:------:|------:|\n| A | B | C |'));
+// → '<table><thead><tr><th align="left">Left</th><th align="center">Center</th><th align="right">Right</th></tr></thead><tbody><tr><td align="left">A</td><td align="center">B</td><td align="right">C</td></tr></tbody></table>'
+
+// Table cells support inline formatting
+console.log(compile('| Format |\n|--------|\n| **bold** in cell |'));
+// → '<table><thead><tr><th>Format</th></tr></thead><tbody><tr><td><strong>bold</strong> in cell</td></tr></tbody></table>'
 ```
 
 **`tokenize(markdown)`** — converts Markdown to intermediate tokens for inspection
@@ -180,16 +192,21 @@ console.log(tokenize('# Heading\nParagraph'));
 //   ]
 ```
 
-### Supported Features (Chunk 2 of 6)
+### Supported Features (Chunk 5 of 6)
 
 Currently implemented:
-- **Block elements:** headings (`#` to `######`), paragraphs
+- **Block elements:** headings (`#` to `######`), paragraphs, lists (ordered and unordered, nested), code blocks (fenced with language tags), blockquotes (nested), horizontal rules (`---`, `***`, `___`), tables (GFM pipe syntax with alignment)
 - **Inline formatting:** bold (`**text**`), italic (`*text*`), inline code (`` `code` ``), strikethrough (`~~text~~`)
 - **Links:** `[text](url)` → `<a href="url">text</a>`
 - **Images:** `![alt](src)` → `<img src="src" alt="alt"/>`
+- **Tables:** GFM pipe tables with header, delimiter row, and alignment indicators
+  - Left align: `:---`
+  - Center align: `:---:`
+  - Right align: `---:`
+  - Cells support inline formatting (bold, italic, code, links)
 - **Security:** all user input HTML-escaped to prevent XSS
 
-Upcoming features (future chunks): lists, code blocks, blockquotes, tables, task lists, horizontal rules, and auto-links.
+Upcoming features (final chunk): task lists and auto-linked URLs.
 
 ## Configuration
 
