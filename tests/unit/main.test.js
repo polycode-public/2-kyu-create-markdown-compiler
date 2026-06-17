@@ -397,6 +397,88 @@ describe("Blockquotes", () => {
   });
 });
 
+describe("Horizontal Rules", () => {
+  test("compile horizontal rule with dashes", () => {
+    const html = compile("---");
+    expect(html).toBe("<hr/>");
+  });
+
+  test("compile horizontal rule with asterisks", () => {
+    const html = compile("***");
+    expect(html).toBe("<hr/>");
+  });
+
+  test("compile horizontal rule with underscores", () => {
+    const html = compile("___");
+    expect(html).toBe("<hr/>");
+  });
+
+  test("horizontal rule with more than 3 characters", () => {
+    const html = compile("-----");
+    expect(html).toBe("<hr/>");
+  });
+
+  test("horizontal rule between paragraphs", () => {
+    const html = compile("Para 1\n\n---\n\nPara 2");
+    expect(html).toBe("<p>Para 1</p><hr/><p>Para 2</p>");
+  });
+
+  test("horizontal rule with spaces around dashes", () => {
+    const html = compile("  ---  ");
+    expect(html).toBe("<hr/>");
+  });
+});
+
+describe("Tables", () => {
+  test("compile simple table with left and right alignment", () => {
+    const html = compile("| Left | Right |\n|:-----|-----:|\n| A | B |");
+    expect(html).toContain("<table>");
+    expect(html).toContain("<thead>");
+    expect(html).toContain("<tbody>");
+    expect(html).toContain("</table>");
+    expect(html).toContain('<th align="left">Left</th>');
+    expect(html).toContain('<th align="right">Right</th>');
+    expect(html).toContain('<td align="left">A</td>');
+    expect(html).toContain('<td align="right">B</td>');
+  });
+
+  test("compile table with center alignment", () => {
+    const html = compile("| Center |\n|:------:|\n| Value |");
+    expect(html).toContain('<th align="center">Center</th>');
+    expect(html).toContain('<td align="center">Value</td>');
+  });
+
+  test("compile table with multiple rows", () => {
+    const html = compile("| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |");
+    expect(html).toContain("<td>1</td>");
+    expect(html).toContain("<td>2</td>");
+    expect(html).toContain("<td>3</td>");
+    expect(html).toContain("<td>4</td>");
+  });
+
+  test("table with inline formatting in cells", () => {
+    const html = compile("| Format |\n|--------|\n| **bold** |\n| *italic* |");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<em>italic</em>");
+  });
+
+  test("table with code in cells", () => {
+    const html = compile("| Code |\n|------|\n| `x` |");
+    expect(html).toContain("<code>x</code>");
+  });
+
+  test("table with links in cells", () => {
+    const html = compile("| Link |\n|------|\n| [url](https://example.com) |");
+    expect(html).toContain('<a href="https://example.com">url</a>');
+  });
+
+  test("table with no alignment specified", () => {
+    const html = compile("| No | Alignment |\n|---|---|\n| A | B |");
+    expect(html).toContain("<th>No</th>");
+    expect(html).toContain("<th>Alignment</th>");
+  });
+});
+
 describe("Edge Cases", () => {
   test("handle empty input", () => {
     const html = compile("");
