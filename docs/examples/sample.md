@@ -1,64 +1,109 @@
-# Markdown Compiler Sample Document
+# GFM Feature Showcase
 
-This document demonstrates all 10 GFM feature areas supported by the Markdown compiler.
+A comprehensive sample demonstrating all 10 GFM feature areas.
 
-## Inline Formatting
+## 1. Headings and Paragraphs
 
-You can use **bold text**, *italic text*, `inline code`, and ~~strikethrough~~ to format content.
+This is a simple paragraph with multiple sentences.
 
-## Links and Images
+### Heading Level 3
 
-Here's a [link to GitHub](https://github.com) and an auto-linked URL: https://example.com
+Some more text here.
 
-Images are also supported: ![Alt text](https://example.com/image.png)
+#### Heading Level 4
 
-## Ordered List
+##### Heading Level 5
+
+###### Heading Level 6
+
+## 2. Inline Formatting
+
+Text with **bold**, *italic*, ~~strikethrough~~, and `inline code`.
+
+Combined: **bold *italic* text** with `code` mixed in.
+
+## 3. Links and Images
+
+Check out [Google](https://www.google.com) and [GitHub](https://github.com).
+
+An image: ![alt text](https://via.placeholder.com/100)
+
+## 4. Ordered Lists
 
 1. First item
 2. Second item
 3. Third item
 
-## Unordered List
+Nested:
+1. Item one
+   1. Sub-item 1.1
+   2. Sub-item 1.2
+2. Item two
 
-- Item one
-- Item two
-- Item three
+## 5. Unordered Lists
 
-## Nested Lists
+- Apple
+- Banana
+- Cherry
 
-- Parent one
-  - Child one
-  - Child two
-- Parent two
-  1. Nested ordered one
-  2. Nested ordered two
+Nested:
+- Fruits
+  - Red fruits
+  - Yellow fruits
+- Vegetables
 
-## Code Block
+## 6. Code Blocks
 
 ```javascript
 function hello() {
-  console.log("Hello, world!");
+  console.log("Hello, World!");
 }
 ```
 
-## Blockquote
+```python
+def greet():
+    print("Hello, Python!")
+```
 
-> This is a blockquote.
-> It can span multiple lines.
+## 7. Blockquotes
 
-## Table with Alignment
+> This is a simple blockquote.
 
-| Left | Center | Right |
-|:-----|:------:|------:|
-| A1   |   B1   |    C1 |
-| A2   |   B2   |    C2 |
+> This is a blockquote with **bold** and *italic*.
+> > Nested blockquote level 2
+> > > Nested blockquote level 3
 
-## Horizontal Rule
+## 8. Tables
 
----
+| Feature | Status | Notes |
+|:--------|:------:|------:|
+| Bold | ✓ | Supported |
+| *Italic* | ✓ | Supported |
+| `Code` | ✓ | Supported |
 
-## Task List
+## 9. Task Lists
 
 - [x] Completed task
 - [ ] Incomplete task
-- [x] Another done item
+- [x] Another done task
+- [ ] Yet another to do
+
+## 10. Auto-linked URLs and Horizontal Rules
+
+Visit https://example.com or https://github.com for more information.
+
+---
+
+Mixed example: https://www.w3.org is a great resource.
+
+---
+
+## Edge Cases
+
+Empty code: `` ` ``
+
+XSS attempt: `<script>alert('xss')</script>` (should be escaped)
+
+Ampersands: A & B & C
+
+Quote in text: He said "hello".

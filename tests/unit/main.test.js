@@ -479,6 +479,124 @@ describe("Tables", () => {
   });
 });
 
+describe("Task Lists", () => {
+  test("compile checked task list", () => {
+    const html = compile("- [x] done");
+    expect(html).toContain("<input type=\"checkbox\" checked disabled/>");
+    expect(html).toContain("done");
+  });
+
+  test("compile unchecked task list", () => {
+    const html = compile("- [ ] todo");
+    expect(html).toContain("<input type=\"checkbox\" disabled/>");
+    expect(html).toContain("todo");
+  });
+
+  test("compile task list with uppercase X", () => {
+    const html = compile("- [X] done");
+    expect(html).toContain("<input type=\"checkbox\" checked disabled/>");
+  });
+
+  test("task list mixed with regular items", () => {
+    const html = compile("- [x] done\n- regular\n- [ ] todo");
+    expect(html).toContain("<input type=\"checkbox\" checked disabled/>");
+    expect(html).toContain("regular");
+    expect(html).toContain("<input type=\"checkbox\" disabled/>");
+  });
+
+  test("task list with inline formatting", () => {
+    const html = compile("- [x] **completed** task");
+    expect(html).toContain("<input type=\"checkbox\" checked disabled/>");
+    expect(html).toContain("<strong>completed</strong>");
+  });
+});
+
+describe("Auto-linked URLs", () => {
+  test("compile bare https URL", () => {
+    const html = compile("https://example.com");
+    expect(html).toContain('<a href="https://example.com">https://example.com</a>');
+  });
+
+  test("compile bare http URL", () => {
+    const html = compile("http://example.com");
+    expect(html).toContain('<a href="http://example.com">http://example.com</a>');
+  });
+
+  test("auto-link in paragraph", () => {
+    const html = compile("Visit https://github.com for code.");
+    expect(html).toContain('<a href="https://github.com">https://github.com</a>');
+    expect(html).toContain("Visit");
+    expect(html).toContain("for code");
+  });
+
+  test("multiple auto-links in text", () => {
+    const html = compile("Check https://a.com and https://b.com");
+    expect(html).toContain('<a href="https://a.com">https://a.com</a>');
+    expect(html).toContain('<a href="https://b.com">https://b.com</a>');
+  });
+
+  test("auto-link with path and query", () => {
+    const html = compile("https://example.com/path?query=1");
+    expect(html).toContain('<a href="https://example.com/path?query=1">');
+  });
+
+  test("escape auto-link URL", () => {
+    const html = compile('https://example.com/search?"test"');
+    expect(html).toContain("&quot;");
+  });
+});
+
+describe("Well-formedness", () => {
+  function isWellFormed(html) {
+    const VOID = new Set(["br", "hr", "img", "input", "meta", "link"]);
+    const stack = [];
+    const re = /<(\/??)([a-zA-Z0-9]+)([^>]*?)(\/?)>/g;
+    let m;
+    while ((m = re.exec(html))) {
+      const [, close, name, , selfClose] = m;
+      const tag = name.toLowerCase();
+      if (VOID.has(tag) || selfClose) continue;
+      if (close) {
+        if (stack.pop() !== tag) return false;
+      } else stack.push(tag);
+    }
+    return stack.length === 0;
+  }
+
+  test("simple paragraph is well-formed", () => {
+    expect(isWellFormed(compile("hello"))).toBe(true);
+  });
+
+  test("nested formatting is well-formed", () => {
+    expect(isWellFormed(compile("**bold *italic* text**"))).toBe(true);
+  });
+
+  test("lists are well-formed", () => {
+    expect(isWellFormed(compile("- item1\n- item2\n  - nested"))).toBe(true);
+  });
+
+  test("task lists are well-formed", () => {
+    expect(isWellFormed(compile("- [x] done\n- [ ] todo"))).toBe(true);
+  });
+
+  test("tables are well-formed", () => {
+    expect(isWellFormed(compile("| A | B |\n|---|---|\n| 1 | 2 |"))).toBe(true);
+  });
+
+  test("blockquotes are well-formed", () => {
+    expect(isWellFormed(compile("> quote\n> > nested"))).toBe(true);
+  });
+
+  test("code blocks are well-formed", () => {
+    expect(isWellFormed(compile("```\ncode\n```"))).toBe(true);
+  });
+
+  test("mixed content is well-formed", () => {
+    const md = "# Heading\n\n**bold** and [link](url)\n\n- [x] task\n\n---\n\nhttps://example.com";
+    expect(isWellFormed(compile(md))).toBe(true);
+  });
+});
+
 describe("Edge Cases", () => {
   test("handle empty input", () => {
     const html = compile("");

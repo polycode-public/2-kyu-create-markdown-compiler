@@ -53,6 +53,13 @@ function tokenizeInline(text) {
       continue;
     }
 
+    const urlMatch = remaining.match(/^https?:\/\/[^\s<>"\)]+/);
+    if (urlMatch) {
+      tokens.push({ type: "autolink", raw: urlMatch[0], url: urlMatch[0] });
+      pos += urlMatch[0].length;
+      continue;
+    }
+
     const strikeMatch = remaining.match(/^~~(.+?)~~(?!\w)/);
     if (strikeMatch) {
       tokens.push({ type: "strikethrough", raw: strikeMatch[0], content: strikeMatch[1] });
@@ -81,7 +88,7 @@ function tokenizeInline(text) {
       continue;
     }
 
-    const textMatch = remaining.match(/^[^*`~\[\]!]+/);
+    const textMatch = remaining.match(/^[^*`~\[\]!h]+/);
     if (textMatch) {
       tokens.push({ type: "text", raw: textMatch[0], content: textMatch[0] });
       pos += textMatch[0].length;
@@ -104,6 +111,7 @@ function renderInline(text) {
       if (token.type === "code") return `<code>${escapeHtml(token.content)}</code>`;
       if (token.type === "strikethrough") return `<del>${renderInline(token.content)}</del>`;
       if (token.type === "link") return `<a href="${escapeHtml(token.url)}">${renderInline(token.content)}</a>`;
+      if (token.type === "autolink") return `<a href="${escapeHtml(token.url)}">${escapeHtml(token.url)}</a>`;
       if (token.type === "image") return `<img src="${escapeHtml(token.src)}" alt="${escapeHtml(token.alt)}"/>`;
       return escapeHtml(token.raw);
     })
@@ -133,6 +141,54 @@ function tokenizeListItems(lines, startIdx, baseIndent = null) {
     // Only process list items at the current indent level
     if (baseIndent !== null && indent !== baseIndent) {
       break;
+    }
+
+    const taskMatch = trimmed.match(/^[-*+]\s+\[([ xX])\]\s+(.+)$/);
+    if (taskMatch) {
+      const checked = taskMatch[1].toLowerCase() === "x";
+      const content = taskMatch[2];
+      const item = {
+        type: "list-item",
+        listType: "unordered",
+        isTask: true,
+        checked,
+        content,
+        indent,
+        inlineTokens: tokenizeInline(content),
+        children: [],
+      };
+
+      i++;
+      const currentBaseIndent = baseIndent === null ? indent : baseIndent;
+
+      while (i < lines.length) {
+        const nextLine = lines[i];
+        const nextTrimmed = nextLine.trim();
+        const nextIndent = nextLine.length - nextLine.trimLeft().length;
+
+        if (!nextTrimmed) {
+          i++;
+          continue;
+        }
+
+        // Check if next line is a nested list item
+        if (nextIndent > currentBaseIndent) {
+          const unorderedNested = nextTrimmed.match(/^[-*+]\s+(.+)$/);
+          const orderedNested = nextTrimmed.match(/^\d+\.\s+(.+)$/);
+
+          if (unorderedNested || orderedNested) {
+            const nestedResult = tokenizeListItems(lines, i, nextIndent);
+            item.children = nestedResult.items;
+            i = nestedResult.nextIdx;
+            break;
+          }
+        }
+
+        break;
+      }
+
+      items.push(item);
+      continue;
     }
 
     const unorderedMatch = trimmed.match(/^[-*+]\s+(.+)$/);
@@ -421,7 +477,12 @@ export function tokenize(markdown) {
 function renderListItems(items) {
   return items
     .map((item) => {
-      let html = `<li>${renderInline(item.content)}`;
+      let html = "<li>";
+      if (item.isTask) {
+        const checked = item.checked ? " checked" : "";
+        html += `<input type="checkbox"${checked} disabled/>`;
+      }
+      html += renderInline(item.content);
       if (item.children.length > 0) {
         const nestedListType = item.children[0].listType;
         const tag = nestedListType === "ordered" ? "ol" : "ul";
@@ -629,7 +690,7 @@ export function compile(markdown) {
 }
 
 export function demo() {
-  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`, [links](https://example.com), and ![image](https://example.com/pic.png).\n\n## Lists\n\n- Item 1\n- Item 2\n  - Nested 2a\n  - Nested 2b\n- Item 3\n\n1. Ordered 1\n2. Ordered 2\n   - Mixed nested\n3. Ordered 3\n\n## Code Blocks\n\n```js\nconst hello = \"world\";\nconsole.log(hello);\n```\n\n## Blockquotes\n\n> This is a blockquote\n> with multiple lines\n\n> This is a nested blockquote\n> > With a second level\n> > > And even deeper\n\n---\n\n## Tables\n\n| Left | Center | Right |\n|:-----|:------:|------:|\n| A | B | C |\n| **bold** | *italic* | `code` |\n\n---";
+  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`, [links](https://example.com), and ![image](https://example.com/pic.png).\n\n## Lists\n\n- Item 1\n- Item 2\n  - Nested 2a\n  - Nested 2b\n- Item 3\n\n1. Ordered 1\n2. Ordered 2\n   - Mixed nested\n3. Ordered 3\n\n## Task Lists\n\n- [x] Completed task\n- [ ] Incomplete task\n\n## Auto-linked URLs\n\nVisit https://example.com or https://github.com/polycode-public for more.\n\n## Code Blocks\n\n```js\nconst hello = \"world\";\nconsole.log(hello);\n```\n\n## Blockquotes\n\n> This is a blockquote\n> with multiple lines\n\n> This is a nested blockquote\n> > With a second level\n> > > And even deeper\n\n---\n\n## Tables\n\n| Left | Center | Right |\n|:-----|:------:|------:|\n| A | B | C |\n| **bold** | *italic* | `code` |\n\n---";
   const html = compile(markdown);
   return { markdown, html };
 }
