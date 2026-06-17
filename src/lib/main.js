@@ -243,6 +243,64 @@ export function tokenize(markdown) {
       continue;
     }
 
+    // Check for fenced code block
+    const codeBlockMatch = trimmed.match(/^```(\w*)?$/);
+    if (codeBlockMatch) {
+      const lang = codeBlockMatch[1] || "";
+      const codeLines = [];
+      i++;
+      while (i < lines.length) {
+        const codeLine = lines[i];
+        if (codeLine.trim().match(/^```$/)) {
+          break;
+        }
+        codeLines.push(codeLine);
+        i++;
+      }
+      tokens.push({
+        type: "code-block",
+        lang,
+        raw: codeLines.join("\n"),
+        content: codeLines.join("\n"),
+      });
+      i++;
+      continue;
+    }
+
+    // Check for blockquote
+    const blockquoteMatch = trimmed.match(/^>\s+(.*)$/);
+    if (blockquoteMatch) {
+      const blockquoteLines = [];
+      let j = i;
+      while (j < lines.length) {
+        const bqLine = lines[j];
+        const bqTrimmed = bqLine.trim();
+        if (!bqTrimmed) {
+          j++;
+          continue;
+        }
+        const match = bqTrimmed.match(/^(>+)\s+(.*)$/);
+        if (!match) {
+          break;
+        }
+        blockquoteLines.push(bqLine);
+        j++;
+      }
+      const blockquoteMarkdown = blockquoteLines
+        .map((bqLine) => {
+          const match = bqLine.match(/^(>+)\s+(.*)$/);
+          return match ? { depth: match[1].length, content: match[2] } : null;
+        })
+        .filter(Boolean);
+      tokens.push({
+        type: "blockquote",
+        raw: blockquoteLines.join("\n"),
+        lines: blockquoteMarkdown,
+      });
+      i = j;
+      continue;
+    }
+
     const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
     if (headingMatch) {
       const level = headingMatch[1].length;
@@ -309,6 +367,141 @@ function renderListItems(items) {
     .join("");
 }
 
+function renderBlockquote(lines) {
+  if (lines.length === 0) return "";
+
+  const grouped = [];
+  let currentGroup = [];
+  let currentDepth = lines[0].depth;
+
+  for (const line of lines) {
+    if (line.depth === currentDepth) {
+      currentGroup.push(line.content);
+    } else {
+      if (currentGroup.length > 0) {
+        grouped.push({ depth: currentDepth, lines: currentGroup });
+      }
+      currentGroup = [line.content];
+      currentDepth = line.depth;
+    }
+  }
+  if (currentGroup.length > 0) {
+    grouped.push({ depth: currentDepth, lines: currentGroup });
+  }
+
+  let html = `<blockquote>${renderBlockquoteContent(lines)}</blockquote>`;
+  return html;
+}
+
+function renderBlockquoteContent(lines) {
+  if (lines.length === 0) return "";
+
+  let html = "";
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.depth === 1) {
+      const content = line.content;
+      const trimmed = content.trim();
+
+      // Check if it's a list item
+      const unorderedMatch = trimmed.match(/^[-*+]\s+(.+)$/);
+      if (unorderedMatch) {
+        const listLines = [];
+        let j = i;
+        while (j < lines.length && lines[j].depth === 1) {
+          const bqContent = lines[j].content.trim();
+          if (bqContent.match(/^[-*+]\s+/) || bqContent.match(/^\s+[-*+]\s+/)) {
+            listLines.push(lines[j]);
+          } else if (bqContent.match(/^\d+\.\s+/) || bqContent.match(/^\s+\d+\.\s+/)) {
+            listLines.push(lines[j]);
+          } else {
+            break;
+          }
+          j++;
+        }
+
+        if (listLines.length > 0) {
+          const reconstructed = listLines.map((l) => l.content).join("\n");
+          const listTokens = tokenize(reconstructed);
+          const listHtml = listTokens
+            .map((token) => {
+              if (token.type === "list") {
+                const tag = token.listType === "ordered" ? "ol" : "ul";
+                return `<${tag}>${renderListItems(token.items)}</${tag}>`;
+              }
+              return "";
+            })
+            .join("");
+          html += listHtml;
+          i = j;
+          continue;
+        }
+      }
+
+      const orderedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+      if (orderedMatch) {
+        const listLines = [];
+        let j = i;
+        while (j < lines.length && lines[j].depth === 1) {
+          const bqContent = lines[j].content.trim();
+          if (bqContent.match(/^[-*+]\s+/) || bqContent.match(/^\s+[-*+]\s+/)) {
+            listLines.push(lines[j]);
+          } else if (bqContent.match(/^\d+\.\s+/) || bqContent.match(/^\s+\d+\.\s+/)) {
+            listLines.push(lines[j]);
+          } else {
+            break;
+          }
+          j++;
+        }
+
+        if (listLines.length > 0) {
+          const reconstructed = listLines.map((l) => l.content).join("\n");
+          const listTokens = tokenize(reconstructed);
+          const listHtml = listTokens
+            .map((token) => {
+              if (token.type === "list") {
+                const tag = token.listType === "ordered" ? "ol" : "ul";
+                return `<${tag}>${renderListItems(token.items)}</${tag}>`;
+              }
+              return "";
+            })
+            .join("");
+          html += listHtml;
+          i = j;
+          continue;
+        }
+      }
+
+      // Regular paragraph or text
+      if (trimmed) {
+        html += `<p>${renderInline(content)}</p>`;
+      }
+      i++;
+    } else if (line.depth > 1) {
+      // Nested blockquote
+      const nestedLines = [];
+      let j = i;
+      const minDepth = line.depth;
+      while (j < lines.length && lines[j].depth >= minDepth) {
+        nestedLines.push({
+          ...lines[j],
+          depth: lines[j].depth - 1,
+        });
+        j++;
+      }
+      html += renderBlockquote(nestedLines);
+      i = j;
+    } else {
+      i++;
+    }
+  }
+
+  return html;
+}
+
 export function compile(markdown) {
   const tokens = tokenize(markdown);
   const html = tokens
@@ -324,6 +517,13 @@ export function compile(markdown) {
         const tag = token.listType === "ordered" ? "ol" : "ul";
         return `<${tag}>${renderListItems(token.items)}</${tag}>`;
       }
+      if (token.type === "code-block") {
+        const langClass = token.lang ? ` class="language-${escapeHtml(token.lang)}"` : "";
+        return `<pre><code${langClass}>${escapeHtml(token.content)}</code></pre>`;
+      }
+      if (token.type === "blockquote") {
+        return renderBlockquote(token.lines);
+      }
       return "";
     })
     .join("");
@@ -332,7 +532,7 @@ export function compile(markdown) {
 }
 
 export function demo() {
-  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`, [links](https://example.com), and ![image](https://example.com/pic.png).\n\n## Lists\n\n- Item 1\n- Item 2\n  - Nested 2a\n  - Nested 2b\n- Item 3\n\n1. Ordered 1\n2. Ordered 2\n   - Mixed nested\n3. Ordered 3";
+  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`, [links](https://example.com), and ![image](https://example.com/pic.png).\n\n## Lists\n\n- Item 1\n- Item 2\n  - Nested 2a\n  - Nested 2b\n- Item 3\n\n1. Ordered 1\n2. Ordered 2\n   - Mixed nested\n3. Ordered 3\n\n## Code Blocks\n\n```js\nconst hello = \"world\";\nconsole.log(hello);\n```\n\n## Blockquotes\n\n> This is a blockquote\n> with multiple lines\n\n> This is a nested blockquote\n> > With a second level\n> > > And even deeper";
   const html = compile(markdown);
   return { markdown, html };
 }

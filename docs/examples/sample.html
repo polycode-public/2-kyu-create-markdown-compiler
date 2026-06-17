@@ -3,16 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Markdown Compiler Sample - Chunk 1</title>
+  <title>Markdown Compiler Sample - Chunk 4</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
     h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
     code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+    pre { background: #f4f4f4; padding: 12px; border-radius: 3px; overflow-x: auto; margin: 1em 0; }
+    pre code { background: none; padding: 0; }
+    blockquote { border-left: 4px solid #ddd; padding-left: 1em; margin-left: 0; color: #666; }
+    blockquote blockquote { margin-left: 1em; }
     strong { font-weight: bold; }
     em { font-style: italic; }
     del { text-decoration: line-through; }
+    ul, ol { margin: 1em 0; padding-left: 2em; }
+    li { margin: 0.5em 0; }
   </style>
 </head>
 <body>
-<h1>Markdown Compiler Sample Document</h1><p>This document demonstrates the core features supported in Chunk 1: headings, paragraphs, and inline formatting.</p><h2>Inline Formatting</h2><p>You can use <strong>bold text</strong>, <em>italic text</em>, <code>inline code</code>, and <del>strikethrough</del> to format content.</p><h2>Mixed Formatting</h2><p>You can combine formats: <strong><em>bold italic</em></strong>, <strong>bold with <code>code</code></strong>, and <em>italic with <del>strikethrough</del></em>.</p><h2>XSS Safety</h2><p>User content is safely escaped: &lt;script&gt;alert('xss')&lt;/script&gt; becomes harmless text.</p><h3>Headings</h3><p>The compiler supports all standard heading levels from h1 to h6.</p><h4>Subheading Level 4</h4><p>Each heading level properly closes its tags.</p><h5>Subheading Level 5</h5><h6>Subheading Level 6</h6><p>This sample demonstrates the foundation features. Future chunks will add links, lists, code blocks, blockquotes, tables, rules, task lists, and auto-links.</p></body>
+<h1>Markdown Compiler Sample</h1><p><strong>Bold</strong> and <em>italic</em> text with <code>code</code>, <a href="https://example.com">links</a>, and <img src="https://example.com/pic.png" alt="image"/>.</p><h2>Lists</h2><ul><li>Item 1</li><li>Item 2<ul><li>Nested 2a</li><li>Nested 2b</li></ul></li><li>Item 3</li></ul><ol><li>Ordered 1</li><li>Ordered 2<ul><li>Mixed nested</li></ul></li><li>Ordered 3</li></ol><h2>Code Blocks</h2><pre><code class="language-js">const hello = "world";
+console.log(hello);</code></pre><h2>Blockquotes</h2><blockquote><p>This is a blockquote</p><p>with multiple lines</p></blockquote><blockquote><p>This is a nested blockquote</p><blockquote><p>With a second level</p><blockquote><p>And even deeper</p></blockquote></blockquote></blockquote></body>
 </html>
