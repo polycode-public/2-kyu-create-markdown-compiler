@@ -27,6 +27,138 @@ export function getIdentity() {
   return { name, version, description };
 }
 
+function escapeHtml(text) {
+  const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
+  return String(text).replace(/[&<>"]/g, (c) => map[c]);
+}
+
+function tokenizeInline(text) {
+  const tokens = [];
+  let pos = 0;
+
+  while (pos < text.length) {
+    const remaining = text.slice(pos);
+
+    const strikeMatch = remaining.match(/^~~(.+?)~~(?!\w)/);
+    if (strikeMatch) {
+      tokens.push({ type: "strikethrough", raw: strikeMatch[0], content: strikeMatch[1] });
+      pos += strikeMatch[0].length;
+      continue;
+    }
+
+    const boldMatch = remaining.match(/^\*\*(.+?)\*\*(?!\w)/);
+    if (boldMatch) {
+      tokens.push({ type: "bold", raw: boldMatch[0], content: boldMatch[1] });
+      pos += boldMatch[0].length;
+      continue;
+    }
+
+    const italicMatch = remaining.match(/^\*(.+?)\*(?!\w)/);
+    if (italicMatch) {
+      tokens.push({ type: "italic", raw: italicMatch[0], content: italicMatch[1] });
+      pos += italicMatch[0].length;
+      continue;
+    }
+
+    const codeMatch = remaining.match(/^`([^`]+)`/);
+    if (codeMatch) {
+      tokens.push({ type: "code", raw: codeMatch[0], content: codeMatch[1] });
+      pos += codeMatch[0].length;
+      continue;
+    }
+
+    const textMatch = remaining.match(/^[^*`~]+/);
+    if (textMatch) {
+      tokens.push({ type: "text", raw: textMatch[0], content: textMatch[0] });
+      pos += textMatch[0].length;
+    } else {
+      tokens.push({ type: "text", raw: remaining[0], content: remaining[0] });
+      pos += 1;
+    }
+  }
+
+  return tokens;
+}
+
+function renderInline(text) {
+  const tokens = tokenizeInline(text);
+  return tokens
+    .map((token) => {
+      if (token.type === "text") return escapeHtml(token.content);
+      if (token.type === "bold") return `<strong>${renderInline(token.content)}</strong>`;
+      if (token.type === "italic") return `<em>${renderInline(token.content)}</em>`;
+      if (token.type === "code") return `<code>${escapeHtml(token.content)}</code>`;
+      if (token.type === "strikethrough") return `<del>${renderInline(token.content)}</del>`;
+      return escapeHtml(token.raw);
+    })
+    .join("");
+}
+
+export function tokenize(markdown) {
+  const lines = markdown.split(/\r?\n/);
+  const tokens = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const content = headingMatch[2];
+      tokens.push({
+        type: "heading",
+        level,
+        raw: line,
+        content,
+        inlineTokens: tokenizeInline(content),
+      });
+      i++;
+      continue;
+    }
+
+    tokens.push({
+      type: "paragraph",
+      raw: line,
+      content: trimmed,
+      inlineTokens: tokenizeInline(trimmed),
+    });
+    i++;
+  }
+
+  return tokens;
+}
+
+export function compile(markdown) {
+  const tokens = tokenize(markdown);
+  const html = tokens
+    .map((token) => {
+      if (token.type === "heading") {
+        const tag = `h${token.level}`;
+        return `<${tag}>${renderInline(token.content)}</${tag}>`;
+      }
+      if (token.type === "paragraph") {
+        return `<p>${renderInline(token.content)}</p>`;
+      }
+      return "";
+    })
+    .join("");
+
+  return html;
+}
+
+export function demo() {
+  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`.";
+  const html = compile(markdown);
+  return { markdown, html };
+}
+
 export function main(args) {
   if (args?.includes("--version")) {
     console.log(version);
