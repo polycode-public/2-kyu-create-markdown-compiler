@@ -110,6 +110,125 @@ function renderInline(text) {
     .join("");
 }
 
+function tokenizeListItems(lines, startIdx, baseIndent = null) {
+  const items = [];
+  let i = startIdx;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    const indent = line.length - line.trimLeft().length;
+
+    // If baseIndent is set and current indent is less, we're done at this level
+    if (baseIndent !== null && indent < baseIndent) {
+      break;
+    }
+
+    // Only process list items at the current indent level
+    if (baseIndent !== null && indent !== baseIndent) {
+      break;
+    }
+
+    const unorderedMatch = trimmed.match(/^[-*+]\s+(.+)$/);
+    if (unorderedMatch) {
+      const content = unorderedMatch[1];
+      const item = {
+        type: "list-item",
+        listType: "unordered",
+        content,
+        indent,
+        inlineTokens: tokenizeInline(content),
+        children: [],
+      };
+
+      i++;
+      const currentBaseIndent = baseIndent === null ? indent : baseIndent;
+
+      while (i < lines.length) {
+        const nextLine = lines[i];
+        const nextTrimmed = nextLine.trim();
+        const nextIndent = nextLine.length - nextLine.trimLeft().length;
+
+        if (!nextTrimmed) {
+          i++;
+          continue;
+        }
+
+        // Check if next line is a nested list item
+        if (nextIndent > currentBaseIndent) {
+          const unorderedNested = nextTrimmed.match(/^[-*+]\s+(.+)$/);
+          const orderedNested = nextTrimmed.match(/^\d+\.\s+(.+)$/);
+
+          if (unorderedNested || orderedNested) {
+            const nestedResult = tokenizeListItems(lines, i, nextIndent);
+            item.children = nestedResult.items;
+            i = nestedResult.nextIdx;
+            break;
+          }
+        }
+
+        break;
+      }
+
+      items.push(item);
+    } else {
+      const orderedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+      if (orderedMatch) {
+        const content = orderedMatch[1];
+        const item = {
+          type: "list-item",
+          listType: "ordered",
+          content,
+          indent,
+          inlineTokens: tokenizeInline(content),
+          children: [],
+        };
+
+        i++;
+        const currentBaseIndent = baseIndent === null ? indent : baseIndent;
+
+        while (i < lines.length) {
+          const nextLine = lines[i];
+          const nextTrimmed = nextLine.trim();
+          const nextIndent = nextLine.length - nextLine.trimLeft().length;
+
+          if (!nextTrimmed) {
+            i++;
+            continue;
+          }
+
+          // Check if next line is a nested list item
+          if (nextIndent > currentBaseIndent) {
+            const unorderedNested = nextTrimmed.match(/^[-*+]\s+(.+)$/);
+            const orderedNested = nextTrimmed.match(/^\d+\.\s+(.+)$/);
+
+            if (unorderedNested || orderedNested) {
+              const nestedResult = tokenizeListItems(lines, i, nextIndent);
+              item.children = nestedResult.items;
+              i = nestedResult.nextIdx;
+              break;
+            }
+          }
+
+          break;
+        }
+
+        items.push(item);
+      } else {
+        break;
+      }
+    }
+  }
+
+  return { items, nextIdx: i };
+}
+
 export function tokenize(markdown) {
   const lines = markdown.split(/\r?\n/);
   const tokens = [];
@@ -139,6 +258,30 @@ export function tokenize(markdown) {
       continue;
     }
 
+    const unorderedMatch = trimmed.match(/^[-*+]\s+(.+)$/);
+    if (unorderedMatch) {
+      const listResult = tokenizeListItems(lines, i);
+      tokens.push({
+        type: "list",
+        listType: "unordered",
+        items: listResult.items,
+      });
+      i = listResult.nextIdx;
+      continue;
+    }
+
+    const orderedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    if (orderedMatch) {
+      const listResult = tokenizeListItems(lines, i);
+      tokens.push({
+        type: "list",
+        listType: "ordered",
+        items: listResult.items,
+      });
+      i = listResult.nextIdx;
+      continue;
+    }
+
     tokens.push({
       type: "paragraph",
       raw: line,
@@ -149,6 +292,21 @@ export function tokenize(markdown) {
   }
 
   return tokens;
+}
+
+function renderListItems(items) {
+  return items
+    .map((item) => {
+      let html = `<li>${renderInline(item.content)}`;
+      if (item.children.length > 0) {
+        const nestedListType = item.children[0].listType;
+        const tag = nestedListType === "ordered" ? "ol" : "ul";
+        html += `<${tag}>${renderListItems(item.children)}</${tag}>`;
+      }
+      html += "</li>";
+      return html;
+    })
+    .join("");
 }
 
 export function compile(markdown) {
@@ -162,6 +320,10 @@ export function compile(markdown) {
       if (token.type === "paragraph") {
         return `<p>${renderInline(token.content)}</p>`;
       }
+      if (token.type === "list") {
+        const tag = token.listType === "ordered" ? "ol" : "ul";
+        return `<${tag}>${renderListItems(token.items)}</${tag}>`;
+      }
       return "";
     })
     .join("");
@@ -170,7 +332,7 @@ export function compile(markdown) {
 }
 
 export function demo() {
-  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`, [links](https://example.com), and ![image](https://example.com/pic.png).";
+  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`, [links](https://example.com), and ![image](https://example.com/pic.png).\n\n## Lists\n\n- Item 1\n- Item 2\n  - Nested 2a\n  - Nested 2b\n- Item 3\n\n1. Ordered 1\n2. Ordered 2\n   - Mixed nested\n3. Ordered 3";
   const html = compile(markdown);
   return { markdown, html };
 }
