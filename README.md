@@ -120,49 +120,36 @@ The core API exports two functions:
 ```js
 import { compile } from './src/lib/main.js';
 
-// Headings and paragraphs
-console.log(compile('# Hello'));
-// → '<h1>Hello</h1>'
+// Headings (h1 to h6)
+console.log(compile('# Heading 1'));
+// → '<h1>Heading 1</h1>'
 
-// Inline formatting
+console.log(compile('## Heading 2'));
+// → '<h2>Heading 2</h2>'
+
+// Paragraphs
+console.log(compile('Simple paragraph text'));
+// → '<p>Simple paragraph text</p>'
+
+// Bold formatting (renders as <strong>)
+console.log(compile('**bold text**'));
+// → '<p><strong>bold text</strong></p>'
+
+// Italic formatting (renders as <em>)
+console.log(compile('*italic text*'));
+// → '<p><em>italic text</em></p>'
+
+// Inline code
+console.log(compile('`inline code`'));
+// → '<p><code>inline code</code></p>'
+
+// Strikethrough
+console.log(compile('~~struck~~'));
+// → '<p><del>struck</del></p>'
+
+// Mixed inline formatting
 console.log(compile('**bold** and *italic* and `code`'));
 // → '<p><strong>bold</strong> and <em>italic</em> and <code>code</code></p>'
-
-// Links
-console.log(compile('[click here](https://example.com)'));
-// → '<p><a href="https://example.com">click here</a></p>'
-
-// Images
-console.log(compile('![alt text](/image.png)'));
-// → '<p><img src="/image.png" alt="alt text"/></p>'
-
-// Formatting inside links
-console.log(compile('[**bold link**](https://example.com)'));
-// → '<p><a href="https://example.com"><strong>bold link</strong></a></p>'
-
-// Unordered lists
-console.log(compile('- item 1\n- item 2'));
-// → '<ul><li>item 1</li><li>item 2</li></ul>'
-
-// Ordered lists
-console.log(compile('1. first\n2. second'));
-// → '<ol><li>first</li><li>second</li></ol>'
-
-// Nested lists with inline formatting
-console.log(compile('- item\n  - **nested**\n- another'));
-// → '<ul><li>item<ul><li><strong>nested</strong></li></ul></li><li>another</li></ul>'
-
-// Code blocks (fenced, language-aware, content not formatted)
-console.log(compile('```js\nconst x = 1;\n```'));
-// → '<pre><code class="language-js">const x = 1;</code></pre>'
-
-// Blockquotes with inline formatting
-console.log(compile('> **important** note'));
-// → '<blockquote><p><strong>important</strong> note</p></blockquote>'
-
-// Nested blockquotes
-console.log(compile('> > deeply nested'));
-// → '<blockquote><blockquote><p>deeply nested</p></blockquote></blockquote>'
 
 // Automatic HTML escaping (XSS-safe)
 console.log(compile('<script>alert("xss")</script>'));
@@ -176,22 +163,19 @@ import { tokenize } from './src/lib/main.js';
 
 console.log(tokenize('# Heading\nParagraph'));
 // → [
-//     { type: 'heading', level: 1, content: 'Heading' },
-//     { type: 'paragraph', content: 'Paragraph' }
+//     { type: 'heading', level: 1, raw: '# Heading', content: 'Heading', inlineTokens: [...] },
+//     { type: 'paragraph', raw: 'Paragraph', content: 'Paragraph', inlineTokens: [...] }
 //   ]
 ```
 
-### Supported Features (Phase 1-4)
+### Supported Features (Chunk 1 of 6)
 
-- **Block elements:** headings (`#` to `######`), paragraphs, lists, code blocks, blockquotes
+Currently implemented:
+- **Block elements:** headings (`#` to `######`), paragraphs
 - **Inline formatting:** bold (`**text**`), italic (`*text*`), inline code (`` `code` ``), strikethrough (`~~text~~`)
-- **Links and images:** `[text](url)` → `<a>`, `![alt](src)` → `<img/>` with inline formatting support
-- **Lists:** unordered (`-`, `*`, `+`), ordered (`1.`, `2.` …), nested lists with indentation
-- **Code blocks:** fenced with language annotation `` ```lang ``; content is literal (not formatted)
-- **Blockquotes:** nested support (`> text`, `> > nested`); content supports inline formatting and nested blocks
-- **Security:** all user input HTML-escaped to prevent XSS, attribute breakout-safe
+- **Security:** all user input HTML-escaped to prevent XSS
 
-Upcoming features: tables, task lists, and more.
+Upcoming features (future chunks): links, images, lists, code blocks, blockquotes, tables, task lists, horizontal rules, and auto-links.
 
 ## Configuration
 
