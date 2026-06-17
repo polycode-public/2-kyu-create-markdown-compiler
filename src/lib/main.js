@@ -39,6 +39,20 @@ function tokenizeInline(text) {
   while (pos < text.length) {
     const remaining = text.slice(pos);
 
+    const imageMatch = remaining.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
+    if (imageMatch) {
+      tokens.push({ type: "image", raw: imageMatch[0], alt: imageMatch[1], src: imageMatch[2] });
+      pos += imageMatch[0].length;
+      continue;
+    }
+
+    const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
+    if (linkMatch) {
+      tokens.push({ type: "link", raw: linkMatch[0], content: linkMatch[1], url: linkMatch[2] });
+      pos += linkMatch[0].length;
+      continue;
+    }
+
     const strikeMatch = remaining.match(/^~~(.+?)~~(?!\w)/);
     if (strikeMatch) {
       tokens.push({ type: "strikethrough", raw: strikeMatch[0], content: strikeMatch[1] });
@@ -67,7 +81,7 @@ function tokenizeInline(text) {
       continue;
     }
 
-    const textMatch = remaining.match(/^[^*`~]+/);
+    const textMatch = remaining.match(/^[^*`~\[\]!]+/);
     if (textMatch) {
       tokens.push({ type: "text", raw: textMatch[0], content: textMatch[0] });
       pos += textMatch[0].length;
@@ -89,6 +103,8 @@ function renderInline(text) {
       if (token.type === "italic") return `<em>${renderInline(token.content)}</em>`;
       if (token.type === "code") return `<code>${escapeHtml(token.content)}</code>`;
       if (token.type === "strikethrough") return `<del>${renderInline(token.content)}</del>`;
+      if (token.type === "link") return `<a href="${escapeHtml(token.url)}">${renderInline(token.content)}</a>`;
+      if (token.type === "image") return `<img src="${escapeHtml(token.src)}" alt="${escapeHtml(token.alt)}"/>`;
       return escapeHtml(token.raw);
     })
     .join("");
@@ -154,7 +170,7 @@ export function compile(markdown) {
 }
 
 export function demo() {
-  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`.";
+  const markdown = "# Hello\n\n**Bold** and *italic* text with `code`, [links](https://example.com), and ![image](https://example.com/pic.png).";
   const html = compile(markdown);
   return { markdown, html };
 }

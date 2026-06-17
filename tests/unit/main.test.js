@@ -188,6 +188,66 @@ describe("XSS Safety", () => {
   });
 });
 
+describe("Links", () => {
+  test("compile simple link", () => {
+    const html = compile("[x](https://a.b)");
+    expect(html).toBe('<p><a href="https://a.b">x</a></p>');
+  });
+
+  test("compile link in paragraph", () => {
+    const html = compile("text [link](https://example.com) more");
+    expect(html).toBe('<p>text <a href="https://example.com">link</a> more</p>');
+  });
+
+  test("escape URL in link href", () => {
+    const html = compile('[click](javascript:alert("xss"))');
+    expect(html).toContain("&quot;");
+    expect(html).not.toContain('alert("xss")');
+  });
+
+  test("link text with inline formatting", () => {
+    const html = compile("[**bold link**](https://example.com)");
+    expect(html).toContain('<a href="https://example.com">');
+    expect(html).toContain("<strong>bold link</strong>");
+  });
+
+  test("multiple links", () => {
+    const html = compile("[link1](https://a.com) and [link2](https://b.com)");
+    expect(html).toContain('<a href="https://a.com">link1</a>');
+    expect(html).toContain('<a href="https://b.com">link2</a>');
+  });
+});
+
+describe("Images", () => {
+  test("compile simple image", () => {
+    const html = compile("![alt](/i.png)");
+    expect(html).toBe('<p><img src="/i.png" alt="alt"/></p>');
+  });
+
+  test("compile image in paragraph", () => {
+    const html = compile("text ![img](https://example.com/pic.png) more");
+    expect(html).toBe('<p>text <img src="https://example.com/pic.png" alt="img"/> more</p>');
+  });
+
+  test("escape src and alt in image", () => {
+    const html = compile('![<script>](javascript:alert("xss"))');
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).toContain("&quot;");
+    expect(html).not.toContain("<script>");
+  });
+
+  test("image with empty alt", () => {
+    const html = compile("![](/img.png)");
+    expect(html).toBe('<p><img src="/img.png" alt=""/></p>');
+  });
+
+  test("multiple images", () => {
+    const html = compile("![a](/1.png) ![b](/2.png)");
+    expect(html).toContain('<img src="/1.png" alt="a"/>');
+    expect(html).toContain('<img src="/2.png" alt="b"/>');
+  });
+});
+
 describe("Edge Cases", () => {
   test("handle empty input", () => {
     const html = compile("");
@@ -214,5 +274,11 @@ describe("Edge Cases", () => {
   test("handle newlines with blank lines", () => {
     const html = compile("para1\n\npara2");
     expect(html).toBe("<p>para1</p><p>para2</p>");
+  });
+
+  test("links and images together", () => {
+    const html = compile("[link](https://example.com) ![img](/pic.png)");
+    expect(html).toContain('<a href="https://example.com">link</a>');
+    expect(html).toContain('<img src="/pic.png" alt="img"/>');
   });
 });
