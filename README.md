@@ -154,6 +154,18 @@ console.log(compile('**bold** and *italic* and `code`'));
 // Automatic HTML escaping (XSS-safe)
 console.log(compile('<script>alert("xss")</script>'));
 // → '<p>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</p>'
+
+// Links
+console.log(compile('[Click here](https://example.com)'));
+// → '<p><a href="https://example.com">Click here</a></p>'
+
+// Images (XHTML self-closing)
+console.log(compile('![alt text](/image.png)'));
+// → '<p><img src="/image.png" alt="alt text"/></p>'
+
+// Link text with inline formatting
+console.log(compile('[**bold link**](https://example.com)'));
+// → '<p><a href="https://example.com"><strong>bold link</strong></a></p>'
 ```
 
 **`tokenize(markdown)`** — converts Markdown to intermediate tokens for inspection
@@ -168,14 +180,16 @@ console.log(tokenize('# Heading\nParagraph'));
 //   ]
 ```
 
-### Supported Features (Chunk 1 of 6)
+### Supported Features (Chunk 2 of 6)
 
 Currently implemented:
 - **Block elements:** headings (`#` to `######`), paragraphs
 - **Inline formatting:** bold (`**text**`), italic (`*text*`), inline code (`` `code` ``), strikethrough (`~~text~~`)
+- **Links:** `[text](url)` → `<a href="url">text</a>`
+- **Images:** `![alt](src)` → `<img src="src" alt="alt"/>`
 - **Security:** all user input HTML-escaped to prevent XSS
 
-Upcoming features (future chunks): links, images, lists, code blocks, blockquotes, tables, task lists, horizontal rules, and auto-links.
+Upcoming features (future chunks): lists, code blocks, blockquotes, tables, task lists, horizontal rules, and auto-links.
 
 ## Configuration
 
