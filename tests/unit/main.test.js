@@ -248,6 +248,90 @@ describe("Images", () => {
   });
 });
 
+describe("Unordered Lists", () => {
+  test("compile simple unordered list", () => {
+    const html = compile("- a\n- b");
+    expect(html).toBe("<ul><li>a</li><li>b</li></ul>");
+  });
+
+  test("compile unordered list with asterisk", () => {
+    const html = compile("* a\n* b");
+    expect(html).toBe("<ul><li>a</li><li>b</li></ul>");
+  });
+
+  test("compile unordered list with plus", () => {
+    const html = compile("+ a\n+ b");
+    expect(html).toBe("<ul><li>a</li><li>b</li></ul>");
+  });
+
+  test("unordered list items with inline formatting", () => {
+    const html = compile("- **bold**\n- *italic*");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<em>italic</em>");
+  });
+
+  test("unordered list items with links", () => {
+    const html = compile("- [link](https://example.com)\n- text");
+    expect(html).toContain('<a href="https://example.com">link</a>');
+  });
+});
+
+describe("Ordered Lists", () => {
+  test("compile simple ordered list", () => {
+    const html = compile("1. a\n2. b");
+    expect(html).toBe("<ol><li>a</li><li>b</li></ol>");
+  });
+
+  test("ordered list with various numbers", () => {
+    const html = compile("1. first\n2. second\n3. third");
+    expect(html).toContain("<ol>");
+    expect(html).toContain("<li>first</li>");
+    expect(html).toContain("<li>second</li>");
+    expect(html).toContain("<li>third</li>");
+    expect(html).toContain("</ol>");
+  });
+
+  test("ordered list items with inline formatting", () => {
+    const html = compile("1. **bold**\n2. `code`");
+    expect(html).toContain("<ol>");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<code>code</code>");
+  });
+});
+
+describe("Nested Lists", () => {
+  test("nested unordered in unordered", () => {
+    const html = compile("- a\n  - b\n  - c\n- d");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<li>a<ul><li>b</li><li>c</li></ul></li>");
+    expect(html).toContain("<li>d</li>");
+  });
+
+  test("nested ordered in unordered", () => {
+    const html = compile("- a\n  1. b\n  2. c\n- d");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<ol>");
+    expect(html).toContain("<li>a<ol>");
+    expect(html).toContain("<li>b</li>");
+    expect(html).toContain("<li>c</li>");
+  });
+
+  test("nested unordered in ordered", () => {
+    const html = compile("1. a\n   - b\n   - c\n2. d");
+    expect(html).toContain("<ol>");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<li>a<ul>");
+  });
+
+  test("deeply nested lists", () => {
+    const html = compile("- a\n  - b\n    - c\n  - d");
+    expect(html).toContain("<li>a<ul>");
+    expect(html).toContain("<li>b<ul>");
+    expect(html).toContain("<li>c</li>");
+  });
+});
+
 describe("Edge Cases", () => {
   test("handle empty input", () => {
     const html = compile("");
