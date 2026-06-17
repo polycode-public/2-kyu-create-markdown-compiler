@@ -332,6 +332,71 @@ describe("Nested Lists", () => {
   });
 });
 
+describe("Code Blocks", () => {
+  test("compile fenced code block without language", () => {
+    const html = compile("```\ncode\n```");
+    expect(html).toBe("<pre><code>code</code></pre>");
+  });
+
+  test("compile fenced code block with language", () => {
+    const html = compile("```js\nconst x = 1;\n```");
+    expect(html).toBe('<pre><code class="language-js">const x = 1;</code></pre>');
+  });
+
+  test("code block escapes HTML", () => {
+    const html = compile("```\n<script>alert('xss')</script>\n```");
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>");
+  });
+
+  test("code block preserves whitespace", () => {
+    const html = compile("```\n  indented\n    more\n```");
+    expect(html).toContain("  indented");
+    expect(html).toContain("    more");
+  });
+
+  test("code block with multiple lines", () => {
+    const html = compile("```js\nline1\nline2\nline3\n```");
+    expect(html).toBe('<pre><code class="language-js">line1\nline2\nline3</code></pre>');
+  });
+});
+
+describe("Blockquotes", () => {
+  test("compile simple blockquote", () => {
+    const html = compile("> hi");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("hi");
+    expect(html).toContain("</blockquote>");
+  });
+
+  test("compile blockquote with multiple lines", () => {
+    const html = compile("> line 1\n> line 2");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("line 1");
+    expect(html).toContain("line 2");
+  });
+
+  test("compile nested blockquote", () => {
+    const html = compile("> outer\n> > inner");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("outer");
+    expect(html).toContain("inner");
+  });
+
+  test("blockquote with triple nesting", () => {
+    const html = compile("> level1\n> > level2\n> > > level3");
+    expect(html).toContain("level1");
+    expect(html).toContain("level2");
+    expect(html).toContain("level3");
+  });
+
+  test("blockquote escapes HTML", () => {
+    const html = compile("> <script>alert('xss')</script>");
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>");
+  });
+});
+
 describe("Edge Cases", () => {
   test("handle empty input", () => {
     const html = compile("");
@@ -364,5 +429,17 @@ describe("Edge Cases", () => {
     const html = compile("[link](https://example.com) ![img](/pic.png)");
     expect(html).toContain('<a href="https://example.com">link</a>');
     expect(html).toContain('<img src="/pic.png" alt="img"/>');
+  });
+
+  test("code in blockquote", () => {
+    const html = compile("> `code` in blockquote");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("<code>code</code>");
+  });
+
+  test("blockquote with links", () => {
+    const html = compile("> [link](https://example.com)");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain('<a href="https://example.com">link</a>');
   });
 });
